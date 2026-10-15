@@ -11,7 +11,8 @@ The game is written in BlitzMax, a BASIC-like language. BlitzMax NG translates i
 | --- | --- |
 | `gridwars.bmx` | Entry point, game loop, enemies, weapons, scoring |
 | `gridparttrail.bmx` | Graphics setup, deformable grid, particles and trails |
-| `control.bmx` | Input, settings menus and configuration persistence |
+| `gameinput.bmx` | SDL mapped gamepads, hotplug, input switching and menu actions |
+| `control.bmx` | Settings menus and configuration persistence |
 | `images.bmx`, `sound.bmx` | PNG sprites and WAV sound effects |
 | `utils.bmx`, `vectorfont.bmx`, `colordefs.bmx` | Drawing helpers, vector text and colours |
 | `gfx/`, `sounds/`, `music/` | Runtime assets; keep these next to the executable |
@@ -80,9 +81,39 @@ The supplied compiler's SDL backend uses X11. On a Wayland desktop, XWayland mus
 
 The game requests 1024x768 fullscreen by default and falls back to a window if that fullscreen mode cannot be created. Window sizes do not have to match the monitor's display modes.
 
-Press **Space** to start and **Esc** for the options menu. The original default input mode is **Dual Analog**. For keyboard play, select **Settings → Controls → Keyboard**: WASD moves, arrow keys fire, and Space uses a bomb. Mouse and hybrid controls are also available.
+Press **Enter**, **Space**, or the gamepad's **south face button** to start. **Esc** or **Start/Menu** opens the pause/options menu.
 
-Settings, colours and high scores are saved under `~/.config/gridwars/`. The `Config.txt`, `Colours.txt` and `hiscores.dat` in the checkout are reference files; they are not loaded automatically from there. Exit through **Esc → Exit Program → Yes** to save settings and scores.
+The default keyboard/mouse layout uses **WASD** to move, mouse aim with **left click** to fire, and **Space/right click** for a bomb. **Settings → Controls** also offers keyboard-only and mouse-only play, keyboard bindings, mouse options and the gamepad stick deadzone. Keyboard-only mode uses the arrow keys to fire. Existing bindings and mouse preferences are preserved when loading an older configuration; the old Dual Analog/Joypad modes migrate to the new automatic gamepad support.
+
+| Action | Gamepad |
+| --- | --- |
+| Move | Left stick |
+| Aim and fire | Right stick; release to stop firing |
+| Bomb | South face button, right bumper or right trigger; one bomb per press |
+| Pause/resume | Start/Menu |
+| Navigate menus / change values | D-pad or left stick |
+| Confirm / back | South / east face button |
+| Enter a high-score name | Up/down changes the letter; left/right changes position; west changes case; east erases; south saves |
+
+“South” means the bottom face button (A on Xbox, Cross on PlayStation); “east” means the right face button. These position-based prompts also work when Steam presents another controller as a virtual Xbox pad.
+
+Gamepads use SDL's controller mappings instead of numbered joystick ports and manual axis calibration. Mapped controllers can connect or disconnect while the game runs; intentional controller or keyboard/mouse activity switches the input source automatically. The sticks use a circular, adjustable deadzone with normalized diagonal movement. Losing window focus or disconnecting the active controller pauses gameplay and requires an explicit resume. A stationary mouse no longer changes menu selection while using a controller.
+
+Settings, colours and high scores are saved under `~/.config/gridwars/`. Set `GRIDWARS_CONFIG_DIR` to use a separate profile, for example while testing this branch alongside the Linux version. Old joystick calibration entries are discarded when the new configuration is saved. The `Config.txt`, `Colours.txt` and `hiscores.dat` in the checkout are reference files; they are not loaded automatically from there. Both the exit menu and a window-manager close save settings and scores.
+
+## Launching through Steam
+
+This branch first targets a **non-Steam game shortcut**. Build the Linux executable, then add `gridwars` to Steam with this checkout as its **Start In** directory. For a Steam Controller, Steam Deck or another device managed by Steam Input, select a **Gamepad** layout: left stick outputs left joystick, right stick/trackpad outputs right joystick, and the buttons output gamepad buttons. The game receives the mapped controller through SDL; no Steamworks SDK or App ID is required.
+
+If desired, isolate the shortcut's settings using Steam's launch options:
+
+```sh
+env GRIDWARS_CONFIG_DIR=/absolute/path/to/gridwars-steam-settings %command%
+```
+
+The game respects SDL/Steam's device filtering and controller mappings, and does not alter Steam's global configuration. Unmapped raw joysticks are not supported. SDL's `SDL_GAMECONTROLLERCONFIG` environment variable can supply a mapping for a controller missing from the bundled SDL database.
+
+Native Steam Input action sets/glyphs, Steamworks overlay callbacks, achievements, Cloud saves and Steam Runtime packaging are separate future work. Focus-loss pause is implemented here; an overlay that does not remove focus still needs the future Steamworks callback integration. This branch has not been certified or tested on a physical Steam Deck/Steam Controller.
 
 WAV sound effects are supported. Background music is not implemented on Linux: the Linux music functions in `sound.bmx` are empty, while the original `.it` tracks use a Windows-only BASS wrapper. This is a pre-existing limitation, not a missing build dependency.
 
@@ -90,7 +121,16 @@ The checkout also lacks `sounds/shieldwarning.wav`, so that particular effect is
 
 ## Validation
 
-Release and debug builds were exercised under Xvfb with Mesa llvmpipe software OpenGL: title screen, keyboard movement and shooting, options and confirmation menus, clean exit, and saved settings/high scores. A fresh configuration also successfully fell back from unavailable 1024x768 fullscreen to a window on a 1280x1024 virtual display. Hardware acceleration, audible output, physical controllers and a real Wayland desktop have not been verified.
+The automated controller tests use real SDL virtual devices, plus a temporary instrumented copy of the game. They cover mapped axes, radial deadzones, button edges, menu repeats, input switching, multiple controllers, hotplug, focus, gameplay, settings navigation, confirmation cancellation, high-score entry and saved configuration migration. Test devices and hooks are excluded from the shipped game, and tests use a temporary settings directory.
+
+```sh
+# With a display available:
+make test BMK=/path/to/BlitzMax/bin/bmk
+# Headless Linux (requires xvfb and xauth):
+xvfb-run -a -s '-screen 0 1280x1024x24' make test BMK=/path/to/BlitzMax/bin/bmk
+```
+
+Release and debug builds are checked under Xvfb with Mesa llvmpipe software OpenGL. Hardware acceleration, audible output, physical controllers, the Steam client and a real Wayland desktop require separate validation.
 
 ## Historical Raspberry Pi cross-compilation notes
 

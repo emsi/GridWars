@@ -1,7 +1,7 @@
 BMK ?= bmk
 ARCH ?= x64
 
-.PHONY: all debug run clean
+.PHONY: all debug run test clean
 
 # BMK handles incremental compilation of the game and its imported modules.
 # -w preserves the original code's implicit numeric argument conversions.
@@ -14,6 +14,9 @@ debug:
 run: all
 	./gridwars
 
+test:
+	python3 tests/run.py "$(BMK)"
+
 clean:
-	rm -rf .bmx
+	rm -rf .bmx tests/.bmx
 	rm -f gridwars gridwars.debug

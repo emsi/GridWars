@@ -1,8 +1,9 @@
 SuperStrict
 
-Import PUB.FreeJoy
+Import "gameinput.bmx"
 Import BRL.Volumes
 Import BRL.FileSystem
+Import Pub.StdC
 
 Import "sound.bmx"
 Import "gridparttrail.bmx"
@@ -14,9 +15,6 @@ Global info$ = " "
 Global infotimer:Int
 Global mx:Int,my:Int
 Global ax:Int
-Global assigning:Int = False
-Global assigningoption:Int = False
-Global assigningbomb:Int = False
 Global bombtime:Int = 30
 Global jdmx# = 0
 Global jdmy# = 0
@@ -41,130 +39,25 @@ Global exbomb:Int[] = [100000,150000,250000]
 Global exlife:Int[] = [75000,100000,200000]
 
 
-Type bbjoypad
-	Field x1id:Int
-	Field y1id:Int
-	Field x2id:Int
-	Field y2id:Int
-	Field x1invert:Int
-	Field y1invert:Int
-	Field x2invert:Int
-	Field y2invert:Int
-	Field x1scale#
-	Field y1scale#
-	Field x2scale#
-	Field y2scale#
-	Field x1center#
-	Field y1center#
-	Field x2center#
-	Field y2center#
-	Field x1dz#
-	Field y1dz#
-	Field x2dz#
-	Field y2dz#
-	Field optionbutton%
-	Field bombbutton%
-End Type
-
-Global j:bbjoypad[4]
-
-For Local port:Int = 0 To 3
-	j[port] = New bbjoypad
-	j[port].x1id = 1
-	j[port].y1id = 2
-	j[port].x2id = 4
-	j[port].y2id = 3
-	j[port].x1invert = 1 'toggles between 1 And -1
-	j[port].y1invert = 1
-	j[port].x2invert = 1
-	j[port].y2invert = 1
-	j[port].x1scale# = 1
-	j[port].y1scale# = 1
-	j[port].x2scale# = 1
-	j[port].y2scale# = 1
-	j[port].x1center# = 0
-	j[port].y1center# = 0
-	j[port].x2center# = 0
-	j[port].y2center# = 0
-	j[port].x1dz# = 0
-	j[port].y1dz# = 0
-	j[port].x2dz# = 0
-	j[port].y2dz# = 0
-	j[port].optionbutton% = 1
-	j[port].bombbutton% = 2
-Next
-
-Global joy_label$[16]
-joy_label[0] = "null"
-joy_label[1] = "JoyX()"
-joy_label[2] = "JoyY()"
-joy_label[3] = "JoyZ()"
-joy_label[4] = "JoyR()"
-joy_label[5] = "JoyU()"
-joy_label[6] = "JoyV()"
-joy_label[7] = "JoyYaw()"
-joy_label[8] = "JoyPitch()"
-joy_label[9] = "JoyRoll()"
-joy_label[10] = "JoyHat()"
-joy_label[11] = "JoyWheel()"
-joy_label[12] = "JoyAxis12()"
-joy_label[13] = "JoyAxis13()"
-joy_label[14] = "JoyAxis14()"
-joy_label[15] = "JoyAxisl5()"
-
+' Slots 0 and 3 are retained only to recognize legacy configuration files.
 Global control_method$[5]
 control_method[0] = "Dual Analog"
 control_method[1] = "Mouse"
 control_method[2] = "Keyboard"
 control_method[3] = "Joypad"
-control_method[4] = "Hybrid"
+control_method[4] = "Keyboard + mouse"
 
 
 'defaults
-Global controltype:Int = 0
-Global deadbandadjust:Int  = 0
-
-Global joyport:Int = 0
+Global controltype:Int = 4
 Global autofire:Int = 0
-
-Global axis_move_x:Int = 0
-Global axis_move_y:Int = 1
-Global axis_fire_x:Int = 3
-Global axis_fire_y:Int = 2
-Global axis_move_x_inv:Int = 1   '1 or -1
-Global axis_move_y_inv:Int = 1
-Global axis_fire_x_inv:Int = 1
-Global axis_fire_y_inv:Int = 1
-Global axis_move_x_sc# = 1   '1, 128, 255
-Global axis_move_y_sc# = 1
-Global axis_fire_x_sc# = 1
-Global axis_fire_y_sc# = 1
-Global axis_move_x_center# = 0   '-0.9 to .9
-Global axis_move_y_center# = 0
-Global axis_fire_x_center# = 0
-Global axis_fire_y_center# = 0
-Global axis_move_x_dz# = 0.05
-Global axis_move_y_dz# = 0.05
-Global axis_fire_x_dz# = 0.05
-Global axis_fire_y_dz# = 0.05
-Global j_d_bomb:Int = 5
-Global j_d_option:Int = 4
-
 Global h_config:Int = 0
 
-Global j_config:Int = 0
-Global j_pad_1:Int = 0
-Global j_pad_2:Int = 1
-Global j_pad_3:Int = 2
-Global j_pad_4:Int = 3
-Global j_pad_bomb:Int = 4
-Global j_pad_option:Int = 0
-
 Global k_bomb:Int = KEY_SPACE
-Global k_move_left:Int = KEY_S
+Global k_move_left:Int = KEY_A
 Global k_move_right:Int = KEY_D
-Global k_move_up:Int = KEY_E
-Global k_move_down:Int = KEY_X
+Global k_move_up:Int = KEY_W
+Global k_move_down:Int = KEY_S
 Global k_fire_left:Int = KEY_LEFT
 Global k_fire_right:Int = KEY_RIGHT
 Global k_fire_up:Int = KEY_UP
@@ -197,10 +90,16 @@ Function DrawTarget(x%,y%,cnt%,sz%=7)
 End Function
 
 
+Function ConfigDirectory:String()
+	Local profileDirectory:String = getenv_("GRIDWARS_CONFIG_DIR")
+	If profileDirectory <> "" Then Return profileDirectory
+	Return GetUserHomeDir()+"/.config/gridwars"
+End Function
+
 Function CheckConfDir:Int()
 	Local ft:Int, confdir$
 
-	confdir$=GetUserHomeDir()+"/.config/gridwars"
+	confdir$=ConfigDirectory()
 	ft = FileType(confdir)
 	if ft = 2
 		Return True
@@ -221,7 +120,7 @@ Function LoadConfig:Int()
 	Local pv$, pm$
 
 	hdir$=GetUserHomeDir()
-	fn$ = hdir+"/.config/gridwars/Config.txt"
+	fn$ = ConfigDirectory()+"/Config.txt"
 	fh = OpenFile(fn$)
 	If fh <> Null
 		While Not Eof(fh)
@@ -244,7 +143,7 @@ Function LoadConfig:Int()
 						controltype = 2 'keys
 					ElseIf Pv.toupper() = control_method[3].toupper()
 						controltype = 3	'joypad
-					ElseIf Pv.toupper() = control_method[4].toupper()
+					ElseIf Pv.toupper() = control_method[4].toupper() Or Pv.toupper() = "HYBRID"
 						controltype = 4	'hybrid
 					EndIf
 				Case "[Autofire]"
@@ -252,21 +151,6 @@ Function LoadConfig:Int()
 
 				Case "[Hybrid Config]"
 					h_config = Int(pv$)
-
-				Case "[Joypad Config]"
-					j_config = Int(pv$)
-				Case "[Joypad Left]"
-					j_pad_1 = Int(pv$)
-				Case "[Joypad Up]"
-					j_pad_2 = Int(pv$)
-				Case "[Joypad Right]"
-					j_pad_3 = Int(pv$)
-				Case "[Joypad Down]"
-					j_pad_4 = Int(pv$)
-				Case "[Joypad Option]"
-					j_pad_option = Int(pv$)
-				Case "[Joypad Bomb]"
-					j_pad_bomb = Int(pv$)
 
 				Case "[Key Bomb]"
 					k_bomb = Int(pv$)
@@ -356,83 +240,14 @@ Function LoadConfig:Int()
 				Case "[Inertia]"
 					inertia# = Float(pv$)/100.0
 
-				Case "[Used Port]"
-					joyport = Int(pv$)
-				Case "[Joy Port]"
-					Local port:Int = Int(pv$)
-					For Local t:Int = 0 To 21
-						Local ax$ = ReadLine(fh)
-						Local cn$ = ReadLine(fh)
-						Select ax$
-							Case "[Joy Move X]"
-								j[port].x1id = Int(cn$)
-							Case "[Joy Move Y]"
-								j[port].y1id = Int(cn$)
-							Case "[Joy Fire X]"
-								j[port].x2id = Int(cn$)
-							Case "[Joy Fire Y]"
-								j[port].y2id = Int(cn$)
+				Case "[Gamepad Deadzone]"
+					padDeadzone = Max(.05, Min(.4, Float(pv$)/100.0))
 
-							Case "[Joy Move X Inverted]"
-								j[port].x1invert = Int(cn$)
-								If Abs(j[port].x1invert) <> 1 Then j[port].x1invert = 1
-							Case "[Joy Move Y Inverted]"
-								j[port].y1invert = Int(cn$)
-								If Abs(j[port].y1invert) <> 1 Then j[port].y1invert = 1
-							Case "[Joy Fire X Inverted]"
-								j[port].x2invert = Int(cn$)
-								If Abs(j[port].x2invert) <> 1 Then j[port].x2invert = 1
-							Case "[Joy Fire Y Inverted]"
-								j[port].y2invert = Int(cn$)
-								If Abs(j[port].y2invert) <> 1 Then j[port].y2invert = 1
-
-							Case "[Joy Move X Scale]"
-								j[port].x1scale = Int(cn$)
-								If j[port].x1scale = 0 Then j[port].x1scale = 1
-							Case "[Joy Move Y Scale]"
-								j[port].y1scale = Int(cn$)
-								If j[port].y1scale = 0 Then j[port].y1scale = 1
-							Case "[Joy Fire X Scale]"
-								j[port].x2scale = Int(cn$)
-								If j[port].x2scale = 0 Then j[port].x2scale = 1
-							Case "[Joy Fire Y Scale]"
-								j[port].y2scale = Int(cn$)
-								If j[port].y2scale = 0 Then j[port].y2scale = 1
-
-							Case "[Joy Move X Center]"
-								j[port].x1center = Float(cn$)
-								If Abs(j[port].x1center) > 1 Then j[port].x1center = 0
-							Case "[Joy Move Y Center]"
-								j[port].y1center = Float(cn$)
-								If Abs(j[port].y1center) > 1 Then j[port].y1center = 0
-							Case "[Joy Fire X Center]"
-								j[port].x2center = Float(cn$)
-								If Abs(j[port].x2center) > 1 Then j[port].x2center = 0
-							Case "[Joy Fire Y Center]"
-								j[port].y2center = Float(cn$)
-								If Abs(j[port].y2center) > 1 Then j[port].y2center = 0
-
-							Case "[Joy Move X Dead Zone]"
-								j[port].x1dz = Float(cn$)
-								If Abs(j[port].x1dz) > 1 Then j[port].x1dz = 0
-							Case "[Joy Move Y Dead Zone]"
-								j[port].y1dz = Float(cn$)
-								If Abs(j[port].y1dz) > 1 Then j[port].y1dz = 0
-							Case "[Joy Fire X Dead Zone]"
-								j[port].x2dz = Float(cn$)
-								If Abs(j[port].x2dz) > 1 Then j[port].x2dz = 0
-							Case "[Joy Fire Y Dead Zone]"
-								j[port].y2dz = Float(cn$)
-								If Abs(j[port].y2dz) > 1 Then j[port].y2dz = 0
-							Case "[Joy Option]"
-								j[port].optionbutton = Int(cn$)
-							Case "[Joy Bomb]"
-								j[port].bombbutton = Int(cn$)
-
-						End Select
-					Next
 			End Select
 		Wend
+		' Legacy joystick modes migrate to keyboard/mouse with automatic gamepad input.
+		If controltype = 0 Or controltype = 3 Then controltype = 4
+		h_config = Max(0, Min(2, h_config))
 		info$ = "Config file loaded."
 		infotimer = 30*4
 		CloseFile fh
@@ -453,7 +268,7 @@ Function SaveConfig:Int()
 	Local fh:TStream, fn$, hdir$
 
 	hdir$=GetUserHomeDir()
-	fn$ = hdir+"/.config/gridwars/Config.txt"
+	fn$ = ConfigDirectory()+"/Config.txt"
 	fh = WriteFile(fn$)
 	If fh <> Null
 		WriteLine (fh,"[Windowed]")
@@ -463,25 +278,15 @@ Function SaveConfig:Int()
 			WriteLine(fh,"False")
 		EndIf
 		WriteLine(fh,"[Control Type]")
-		WriteLine(fh,control_method[controltype])
+		' Keep the on-disk name readable by the Linux branch as well.
+		If controltype = 4
+			WriteLine(fh,"Hybrid")
+		Else
+			WriteLine(fh,control_method[controltype])
+		EndIf
 
 		WriteLine(fh,"[Hybrid Config]")
 		WriteLine(fh,h_config)
-
-		WriteLine(fh,"[Joypad Config]")
-		WriteLine(fh,j_config)
-		WriteLine(fh,"[Joypad Left]")
-		WriteLine(fh,j_pad_1)
-		WriteLine(fh,"[Joypad Up]")
-		WriteLine(fh,j_pad_2)
-		WriteLine(fh,"[Joypad Right]")
-		WriteLine(fh,j_pad_3)
-		WriteLine(fh,"[Joypad Down]")
-		WriteLine(fh,j_pad_4)
-		WriteLine(fh,"[Joypad Option]")
-		WriteLine(fh,j_pad_option)
-		WriteLine(fh,"[Joypad Bomb]")
-		WriteLine(fh,j_pad_bomb)
 
 		WriteLine(fh,"[Autofire]")
 		WriteLine(fh,autofire)
@@ -568,62 +373,8 @@ Function SaveConfig:Int()
 		WriteLine(fh,"[Inertia]")
 		WriteLine(fh,Int(inertia#*100))
 
-		WriteLine(fh,"[Used Port]")
-		WriteLine(fh, joyport)
-		For Local port:Int = 0 To 3
-			WriteLine(fh,"[Joy Port]")
-			WriteLine(fh, port)
-			WriteLine(fh,"[Joy Move X]")
-			WriteLine(fh,j[port].x1id)
-			WriteLine(fh,"[Joy Move Y]")
-			WriteLine(fh,j[port].y1id)
-			WriteLine(fh,"[Joy Fire X]")
-			WriteLine(fh,j[port].x2id)
-			WriteLine(fh,"[Joy Fire Y]")
-			WriteLine(fh,j[port].y2id)
-
-			WriteLine(fh,"[Joy Move X Inverted]")
-			WriteLine(fh,j[port].x1invert)
-			WriteLine(fh,"[Joy Move Y Inverted]")
-			WriteLine(fh,j[port].y1invert)
-			WriteLine(fh,"[Joy Fire X Inverted]")
-			WriteLine(fh,j[port].x2invert)
-			WriteLine(fh,"[Joy Fire Y Inverted]")
-			WriteLine(fh,j[port].y2invert)
-
-			WriteLine(fh,"[Joy Move X Scale]")
-			WriteLine(fh,Int(j[port].x1scale))
-			WriteLine(fh,"[Joy Move Y Scale]")
-			WriteLine(fh,Int(j[port].y1scale))
-			WriteLine(fh,"[Joy Fire X Scale]")
-			WriteLine(fh,Int(j[port].x2scale))
-			WriteLine(fh,"[Joy Fire Y Scale]")
-			WriteLine(fh,Int(j[port].y2scale))
-
-			WriteLine(fh,"[Joy Move X Center]")
-			WriteLine(fh,(j[port].x1center))
-			WriteLine(fh,"[Joy Move Y Center]")
-			WriteLine(fh,(j[port].y1center))
-			WriteLine(fh,"[Joy Fire X Center]")
-			WriteLine(fh,(j[port].x2center))
-			WriteLine(fh,"[Joy Fire Y Center]")
-			WriteLine(fh,(j[port].y2center))
-
-			WriteLine(fh,"[Joy Move X Dead Zone]")
-			WriteLine(fh,j[port].x1dz)
-			WriteLine(fh,"[Joy Move Y Dead Zone]")
-			WriteLine(fh,j[port].y1dz)
-			WriteLine(fh,"[Joy Fire X Dead Zone]")
-			WriteLine(fh,j[port].x2dz)
-			WriteLine(fh,"[Joy Fire Y Dead Zone]")
-			WriteLine(fh,j[port].y2dz)
-
-			WriteLine(fh,"[Joy Option]")
-			WriteLine(fh,j[port].optionbutton)
-			WriteLine(fh,"[Joy Bomb]")
-			WriteLine(fh,j[port].bombbutton)
-
-		Next
+		WriteLine(fh,"[Gamepad Deadzone]")
+		WriteLine(fh,Int(padDeadzone*100+.5))
 		info$ = "Config file saved."
 		infotimer = 30*4
 		CloseFile fh
@@ -641,7 +392,7 @@ Function SaveColours:Int()
 	Local fh:TStream, fn$, hdir$
 
 	hdir$=GetUserHomeDir()
-	fn$ = hdir+"/.config/gridwars/Colours.txt"
+	fn$ = ConfigDirectory()+"/Colours.txt"
 	fh = WriteFile(fn$)
 	If fh <> Null
 		WriteLine(fh,"squares")
@@ -739,7 +490,7 @@ Function LoadColours:Int()
 	Local com$
 
 	hdir$=GetUserHomeDir()
-	fn$ = hdir+"/.config/gridwars/Colours.txt"
+	fn$ = ConfigDirectory()+"/Colours.txt"
 	fh = OpenFile(fn$)
 	If fh <> Null
 		com$ = ReadLine(fh)
@@ -875,6 +626,7 @@ End Function
 
 
 Function Options:Int(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local ret:Int = 0
@@ -883,7 +635,6 @@ Function Options:Int(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 2+showgame
 	Local s#,x:Int
-	Local ignorejoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
@@ -891,8 +642,10 @@ Function Options:Int(showgame:Int)
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(1+(showgame>0))+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
+		gameInput.pauseRequested = False
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -902,63 +655,55 @@ Function Options:Int(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Options",SCREENW/2-280,SCREENH/2-lsp*3,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0, SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0, SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Exit Program",SCREENW/2-280,SCREENH/2-lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Settings",SCREENW/2-280,SCREENH/2,4)
 		If showgame
-			If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
+			If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 			If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 			DrawString("End Game",SCREENW/2-280,SCREENH/2+lsp,4)
 
-			If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
+			If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 			If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 			DrawString("Continue",SCREENW/2-280,SCREENH/2+lsp*2,4)
 		Else
-			If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
+			If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 			If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 			DrawString("Continue",SCREENW/2-280,SCREENH/2+lsp,4)
 		EndIf
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		Flip 1
 		cnt:+1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
+		jdmy = gameInput.navY
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 2+showgame
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 2+showgame Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
-		If jdmy <> 0 Then ignorejoy = True
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(1) Then done = True
-		If KeyHit(KEY_ESCAPE) Or KeyHit(KEY_LEFT) Then sel = 2+showgame;done = True;bombtime = 20
+
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Or MouseHit(1) Then done = True
+		If MenuBack() Or KeyHit(KEY_LEFT) Then sel = 2+showgame;done = True;bombtime = 20
 		If KeyHit(KEY_RIGHT) Then done = True
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 10
+
 		If sel = 1 And done = True
 			ret = Settings(showgame)
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+20)
+
 			done = False
 			looper = 0
 			bombtime = 20
@@ -996,6 +741,7 @@ Function Options:Int(showgame:Int)
 	Wend
 	FlushKeys()
 	FlushMouse()
+	If gameInput.quit Then Return 1
 	Return False
 
 End Function
@@ -1003,13 +749,13 @@ End Function
 
 
 Function conf:Int(showgame:Int, st$="")
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local done:Int = False
 	Local jb:Int,i:Int
 	Local looper:Int = 0
 	Local sel:Int = 1
-	Local ignorejoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
@@ -1018,8 +764,10 @@ Function conf:Int(showgame:Int, st$="")
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp+10)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
+		If MenuBack() Then Return False
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1030,47 +778,38 @@ Function conf:Int(showgame:Int, st$="")
 		SetColor 255,0,0
 		DrawString(st$,SCREENW/2-280,SCREENH/2-lsp*2,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Yes",SCREENW/2-280,SCREENH/2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("No",SCREENW/2-280,SCREENH/2+lsp,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		Flip 1
 		cnt:+1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
+		jdmy = gameInput.navY
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 1
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 1 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
+
 		EndIf
 
-		If jdmy <> 0 Then ignorejoy = True
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or KeyHit(KEY_ESCAPE) Or MouseHit(1) Then done = True
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Or MouseHit(1) Then done = True
 		If KeyHit(KEY_RIGHT) Then done = True
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
+
 		looper :+8
 	Wend
 	If sel = 0 Then Return True Else Return False
@@ -1080,6 +819,7 @@ End Function
 
 
 Function Settings:Int(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local ret:Int = 0
@@ -1088,15 +828,15 @@ Function Settings:Int(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 4
 	Local s#,x:Int
-	Local ignorejoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*3+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1106,85 +846,75 @@ Function Settings:Int(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Settings",SCREENW/2-280,SCREENH/2-lsp*3,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Audio",SCREENW/2-280,SCREENH/2-lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Video",SCREENW/2-280,SCREENH/2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Controls",SCREENW/2-280,SCREENH/2+lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Game",SCREENW/2-280,SCREENH/2+lsp*2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 4
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*3,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		Flip 1
 		cnt:+1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
+		jdmy = gameInput.navY
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 4
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 4 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
 
-		If jdmy <> 0 Then ignorejoy = True
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(1) Then done = True
-		If KeyHit(KEY_ESCAPE)  Or KeyHit(KEY_LEFT) Then done = True;sel = 4;bombtime = 20
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Or MouseHit(1) Then done = True
+		If MenuBack()  Or KeyHit(KEY_LEFT) Then done = True;sel = 4;bombtime = 20
 		If KeyHit(KEY_RIGHT) Then done = True
 
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True
+
 		If done = True
 			Select sel
 				Case 0 'audio
 					AudioSettings(showgame)
-					MoveMouse(SCREENW/2-280-20,SCREENH/2-lsp+20)
+
 					done = False
 					looper = 0
 					bombtime = 20
 				Case 1 'video
 					ret = VideoSettings(showgame)
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+20)
+
 					done = False
 					looper = 0
 					bombtime = 20
 				Case 2 'controller
 					ret = ControllerSettings(showgame)
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp+20)
-					SetController()
+
 					done = False
 					looper = 0
 					bombtime = 20
 				Case 3 'game settings
 					ret = GameSettings(showgame)
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*2+20)
+
 					done = False
 					looper = 0
 					bombtime = 20
@@ -1205,6 +935,7 @@ End Function
 
 
 Function VideoSettings:Int(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local done:Int = False
@@ -1212,7 +943,6 @@ Function VideoSettings:Int(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 10 ' done
 	Local s#,x:Int
-	Local ignorejoy:Int, ignorexjoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 	If SCREENH =< 480 Then lsp = 32
@@ -1228,8 +958,9 @@ Function VideoSettings:Int(showgame:Int)
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*6+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1239,27 +970,27 @@ Function VideoSettings:Int(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Video Settings",SCREENW/2-280,SCREENH/2-lsp*6,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*4,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*4,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Scroll: "+onoff$[scroll],SCREENW/2-280,SCREENH/2-lsp*4,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*3,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*3,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Screen Size: "+(screensize+1)+"/"+numgfxmodes+" "+gfxmodearr[screensize].desc$+" ("+gfxmodearr[screensize].s$+")",SCREENW/2-280,SCREENH/2-lsp*3,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Playfield Size: "+(playsize+1)+"/"+numplayfieldsizes+" "+playfieldsizes[playsize*2]+"X"+playfieldsizes[playsize*2+1],SCREENW/2-280,SCREENH/2-lsp*2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Gfx Set: "+lowmedhigh$[gfxset],SCREENW/2-280,SCREENH/2-lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*0,SCREENW,5*4) Then sel = 4
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*0,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Windowed: "+onoff$[windowed],SCREENW/2-280,SCREENH/2+lsp*0,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*1,SCREENW,5*4) Then sel = 5
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*1,SCREENW,5*4) Then sel = 5
 		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Grid Style: "+g_style,SCREENW/2-280,SCREENH/2+lsp*1,4)
 		If sel = 5 Or sel = 7 Or sel = 8 Or sel = 9
@@ -1271,11 +1002,11 @@ Function VideoSettings:Int(showgame:Int)
 		gxoff = 0
 		gyoff = 0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 6
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 6
 		If sel = 6 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Number of Stars: "+showstars,SCREENW/2-280,SCREENH/2+lsp*2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 7
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 7
 		If sel = 7 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Particle Style: "+particlestyle,SCREENW/2-280,SCREENH/2+lsp*3,4)
 		If sel = 7
@@ -1292,7 +1023,7 @@ Function VideoSettings:Int(showgame:Int)
 		SetColor 100,255,100
 		DrawRect SCREENW/2+74+2-122+col_pick*2,SCREENH/2+lsp*4+20,2,8
 		DrawRect SCREENW/2+74+2-122+bright*2,SCREENH/2+lsp*5+20,2,8
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 8
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 8
 		If sel = 8 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Grid Colour:",SCREENW/2-280,SCREENH/2+lsp*4,4)
 		If sel = 8
@@ -1301,7 +1032,7 @@ Function VideoSettings:Int(showgame:Int)
 			SetScale 1,1
 		EndIf
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*5,SCREENW,5*4) Then sel = 9
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*5,SCREENW,5*4) Then sel = 9
 		If sel = 9 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Grid Bright:",SCREENW/2-280,SCREENH/2+lsp*5,4)
 		If sel = 9
@@ -1310,52 +1041,37 @@ Function VideoSettings:Int(showgame:Int)
 			SetScale 1,1
 		EndIf
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*6,SCREENW,5*4) Then sel = 10
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*6,SCREENW,5*4) Then sel = 10
 		If sel = 10 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*6,4)
 
 
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		cnt:+1
 		Flip 1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
+		jdmy = gameInput.navY
+		jdmx = gameInput.navX
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 10
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-4)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 10 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-4)+20)
+
 		EndIf
 
-		If jdmy <> 0 Then ignorejoy = True
-		If jdmx <> 0 Then ignorexjoy = True
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-		If KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 10;bombtime = 20
+
+		If (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Then done = True
+		If MenuBack() Then done = True;sel = 10;bombtime = 20
 		If (KeyDown(KEY_LEFT) Or MouseDown(1)) And bombtime = 0 Then jdmx = -1;bombtime = 20
 		If (KeyDown(KEY_RIGHT) Or MouseDown(2)) And bombtime = 0 Then jdmx = 1;bombtime = 20
 		Select sel
@@ -1520,6 +1236,7 @@ End Function
 
 
 Function GameSettings:Int(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local done:Int = False
@@ -1527,7 +1244,6 @@ Function GameSettings:Int(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 5 ' done
 	Local s#,x:Int
-	Local ignorejoy:Int, ignorexjoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
@@ -1541,8 +1257,9 @@ Function GameSettings:Int(showgame:Int)
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*3+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1552,72 +1269,58 @@ Function GameSettings:Int(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Game Settings",SCREENW/2-280,SCREENH/2-lsp*4,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Starting Level: "+difficulty$[startingdifficulty],SCREENW/2-280,SCREENH/2-lsp*2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Free Player: "+exlife[startingdifficulty],SCREENW/2-280,SCREENH/2-lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Free Bomb: "+exbomb[startingdifficulty],SCREENW/2-280,SCREENH/2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("AutoFire: "+onoff$[autofire],SCREENW/2-280,SCREENH/2+lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 4
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Inertia:",SCREENW/2-280,SCREENH/2+lsp*2,4)
 		DrawGameRect SCREENW/2-360+240+1,SCREENH/2+lsp*2+1,inertia*300,24-2,1
 		SetColor 255,255,0
 		DrawGameRect SCREENW/2-360+240,SCREENH/2+lsp*2,302,24,0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 5
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 5
 		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*3,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		cnt:+1
 		Flip 1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
+		jdmy = gameInput.navY
+		jdmx = gameInput.navX
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 5
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-2)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 5 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-2)+20)
+
 		EndIf
-		If jdmy <> 0 Then ignorejoy = True
-		If jdmx <> 0 Then ignorexjoy = True
+
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-		If KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 5;bombtime = 20
+
+		If (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Then done = True
+		If MenuBack() Then done = True;sel = 5;bombtime = 20
 		If (KeyDown(KEY_LEFT) Or MouseDown(1)) And bombtime = 0 Then jdmx = -1;bombtime = 20
 		If (KeyDown(KEY_RIGHT) Or MouseDown(2)) And bombtime = 0 Then jdmx = 1;bombtime = 20
 		Select sel
@@ -1696,6 +1399,7 @@ End Function
 
 
 Function AudioSettings(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local done:Int = False
@@ -1703,7 +1407,6 @@ Function AudioSettings(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 3
 	Local s#,x:Int
-	Local ignoreyjoy:Int,ignorexjoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 	Local oldsoundset:Int = soundset
@@ -1711,8 +1414,9 @@ Function AudioSettings(showgame:Int)
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*3+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1722,7 +1426,7 @@ Function AudioSettings(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Audio Settings",SCREENW/2-280,SCREENH/2-lsp*2,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
 		If sel = 0
 			SetColor 0,200,0
 			DrawGameRect SCREENW/2+2,SCREENH/2+2,sfxvol*200,24-2,1
@@ -1735,7 +1439,7 @@ Function AudioSettings(showgame:Int)
 		DrawString("SFX Volume:",SCREENW/2-280,SCREENH/2,4)
 		DrawGameRect SCREENW/2,SCREENH/2,202,24,0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
 		If sel = 1
 			SetColor 0,200,0
 			DrawGameRect SCREENW/2+1,SCREENH/2+lsp+1,musicvol*200,24-2,1
@@ -1748,14 +1452,14 @@ Function AudioSettings(showgame:Int)
 		DrawString("Music Volume:",SCREENW/2-280,SCREENH/2+lsp,4)
 		DrawGameRect SCREENW/2,SCREENH/2+lsp,202,24,0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Sound Set: "+soundsets$[soundset],SCREENW/2-280,SCREENH/2+lsp*2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 3
 		If sel = 3 Then SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*3,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		cnt:+1
 		Flip 1
 		tim = MilliSecs() - tim
@@ -1763,27 +1467,17 @@ Function AudioSettings(showgame:Int)
 			Delay 20-tim
 		EndIf
 
-		jdmy = GetJoyByAxis(joyport, axis_move_y,axis_move_y_inv,axis_move_y_sc,axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignoreyjoy = False
-		If ignoreyjoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x,axis_move_x_inv,axis_move_x_sc,axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
+		jdmy = gameInput.navY
+		jdmx = gameInput.navX
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 3
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 3 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
+
 		EndIf
 		If (KeyDown(KEY_LEFT) Or MouseDown(1)) And bombtime = 0 Then jdmx = -1;bombtime = 20
 		If (KeyDown(KEY_RIGHT) Or MouseDown(2)) And bombtime = 0 Then jdmx = 1;bombtime = 20
@@ -1824,17 +1518,13 @@ Function AudioSettings(showgame:Int)
 				If jdmx <> 0 Then done=True
 
 		End Select
-		If jdmy <> 0 Then ignoreyjoy = True
-		If jdmx <> 0 Then ignorexjoy = True
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 2;bombtime = 20
+
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Then done = True
+		If MenuBack() Then done = True;sel = 2;bombtime = 20
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True
+
 
 		looper :+8
 	Wend
@@ -1849,131 +1539,78 @@ End Function
 
 
 Function ControllerSettings:Int(showgame:Int)
-
-	Local xx:Int, yy:Int, cnt:Int
-	Local done:Int = False
-	Local jb:Int,i:Int
-	Local looper:Int = 0
-	Local sel:Int = 2
-	Local s#,x:Int
-	Local ignoreyjoy:Int
-	Local ignorexjoy:Int
-	Local tim:Int
-	Local lsp:Int = 40
-
-	bombtime = 20
-	FlushKeys()
-	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*2+20)
-	While Not done
-		Cls
-		xx = MouseX()
-		yy = MouseY()
-
-		tim = MilliSecs()
-		If showgame Then DrawAllStatic(.7)
-		SetColor 255,0,0
-		DrawString("Controller Selection",SCREENW/2-280,SCREENH/2-lsp*2,6)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
-		If sel = 0 Then SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Type: "+control_method[controltype],SCREENW/2-280,SCREENH/2,4)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
-		If sel = 1 Then SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Configure Controls",SCREENW/2-280,SCREENH/2+lsp,4)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 2
-		If sel = 2 Then SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*2,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
-		cnt:+1
-		Flip 1
-		tim = MilliSecs() - tim
-		If tim < 20 And tim > 0
-			Delay 20-tim
-		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignoreyjoy = False
-		If ignoreyjoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x,axis_move_x_inv,axis_move_x_sc,axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
-		If KeyHit(KEY_UP) Or jdmy < 0
-			sel:-1
-			If sel < 0 Then sel = 2
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
-		EndIf
-		If KeyHit(KEY_DOWN) Or jdmy > 0
-			sel:+1
-			If sel > 2 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
-		EndIf
-
-		If jdmy <> 0 Then ignoreyjoy = True
-		If jdmx <> 0 Then ignorexjoy = True
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 2;bombtime = 20
-		If KeyHit(KEY_LEFT) Or MouseHit(1) Then jdmx = -1
-		If KeyHit(KEY_RIGHT) Or MouseHit(2) Then jdmx = 1
-		jb = 0
-		bombtime = bombtime - 1
-		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
+	Local sel:Int = 0, cnt:Int, xx:Int, yy:Int
+	Local labels:String[6]
+	Local modes:Int[] = [4, 2, 1]
+	BeginInputContext()
+	While Not gameInput.quit
+		PollGameInput()
+		If MenuBack() Then Exit
+		xx = MouseX(); yy = MouseY()
+		For Local i:Int = 0 Until labels.Length
+			Local row:Int = SCREENH/2-40+i*40
+			If gameInput.mouseMoved And RectsOverlap(xx,yy,1,1,SCREENW/2-280,row,600,28) Then sel = i
 		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-
-		Select sel
-			Case 0 ' control type
-				If jdmx < 0 Or done = True
-					controltype :- 1
-					If controltype < 0 Then controltype = 4
-					done = False
-				EndIf
-				If jdmx > 0
-					controltype :+ 1
-					If controltype > 4 Then controltype = 0
-				EndIf
-			Case 1 'controller config
-				If done = True Or jdmx <> 0
-					Select controltype
-						Case 0 'dual analog
-							DualAnalogControllerSettings()
-						Case 1 'mouse
-							MouseControllerSettings(showgame)
-						Case 2 'key
-							KeyboardControllerSettings(showgame)
-						Case 3 'joypad
-							JoypadControllerSettings(showgame)
-						Case 4 'hybrid
-							HybridControllerSettings(showgame)
-					End Select
-					SetController()
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel)+20)
-					done = False
-					looper = 0
-					bombtime = 20
-					FlushKeys()
-					FlushMouse()
-				EndIf
-			Case 2 ' done
-				If jdmx <> 0 Then done=True
-
-		End Select
-		looper :+8
+		If KeyHit(KEY_UP) Or gameInput.navY < 0 Then sel = (sel+5) Mod 6
+		If KeyHit(KEY_DOWN) Or gameInput.navY > 0 Then sel = (sel+1) Mod 6
+		Local change:Int = gameInput.navX + KeyHit(KEY_RIGHT) - KeyHit(KEY_LEFT)
+		Local accept:Int = KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM) Or MouseHit(1)
+		If accept And sel = 5 Then Exit
+		If sel = 0 And (change <> 0 Or accept)
+			Local mode:Int
+			For Local i:Int = 0 Until modes.Length
+				If modes[i] = controltype Then mode = i
+			Next
+			If change < 0 Then mode = (mode+2) Mod 3 Else mode = (mode+1) Mod 3
+			controltype = modes[mode]
+		EndIf
+		If sel = 1 And (change <> 0 Or accept)
+			If accept Then change = 1
+			padDeadzone = Max(.05, Min(.4, padDeadzone + Sgn(change)*.01))
+		EndIf
+		If accept And sel >= 2 And sel <= 4
+			Select sel
+				Case 2
+					KeyboardControllerSettings(showgame)
+				Case 3
+					HybridControllerSettings(showgame)
+				Case 4
+					MouseControllerSettings(showgame)
+			End Select
+			BeginInputContext()
+		EndIf
+		Cls
+		If showgame Then DrawAllStatic(.7)
+		SetColor 255,80,80
+		DrawString("Controls",SCREENW/2-280,SCREENH/2-260,5)
+		SetColor 180,220,255
+		DrawString(PadName()[..Min(48,PadName().Length)],SCREENW/2-280,SCREENH/2-210,2)
+		DrawString("Left stick: move  Right stick: aim/fire",SCREENW/2-280,SCREENH/2-180,2)
+		DrawString("Bomb: south / right bumper / right trigger",SCREENW/2-280,SCREENH/2-150,2)
+		DrawString("Start: pause  South: confirm  East: back",SCREENW/2-280,SCREENH/2-120,2)
+		DrawString("Gamepad and keyboard/mouse switch automatically",SCREENW/2-280,SCREENH/2-90,2)
+		labels[0] = "Keyboard/mouse: " + control_method[controltype]
+		labels[1] = "Stick deadzone: " + Int(padDeadzone*100+.5) + "%"
+		labels[2] = "Keyboard bindings"
+		labels[3] = "Keyboard + mouse settings"
+		labels[4] = "Mouse settings"
+		labels[5] = "Done"
+		For Local i:Int = 0 Until labels.Length
+			Local row:Int = SCREENH/2-40+i*40
+			If sel = i Then SetColor 255,255,64 Else SetColor 0,200,0
+			DrawString(labels[i],SCREENW/2-280,row,3)
+		Next
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
+		Flip 1
+		Delay 10
+		cnt :+ 1
 	Wend
-
+	BeginInputContext()
 End Function
 
 
 Function HybridControllerSettings(showgame:Int)
+	BeginInputContext()
 
 	Local xx:Int, yy:Int, cnt:Int
 	Local done:Int = False
@@ -1981,15 +1618,15 @@ Function HybridControllerSettings(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 4
 	Local s#,x:Int
-	Local ignorejoy:Int,ignorexjoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*3+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -1999,7 +1636,7 @@ Function HybridControllerSettings(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Hybrid Control",SCREENW/2-280,SCREENH/2-lsp*3,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		Select h_config
 			Case 0
@@ -2010,70 +1647,57 @@ Function HybridControllerSettings(showgame:Int)
 				DrawString("Move: Keys* - Aim: Mouse Centered",SCREENW/2-280,SCREENH/2-lsp,4)
 		End Select
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Fire: "+mbut$[m_fire]+" Mouse Button",SCREENW/2-280,SCREENH/2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Bomb: "+mbut$[m_bomb]+" Mouse Button",SCREENW/2-280,SCREENH/2+lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawGameRect SCREENW/2+100+1,SCREENH/2+lsp*2+1,m_sensitivity*200,24-2,1
 		DrawString("Mouse Sensitivity:",SCREENW/2-280,SCREENH/2+lsp*2,4)
 		SetColor 255,255,0
 		DrawGameRect SCREENW/2+100,SCREENH/2+lsp*2,202,24,0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 4
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*3,4)
 
 		SetColor 0,200,0
-		DrawString("* configure in Keys Control",SCREENW/2-280,SCREENH/2+lsp*4,4)
+		DrawString("* see Keyboard bindings",SCREENW/2-280,SCREENH/2+lsp*4,4)
 
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		cnt:+1
 		Flip 1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
+		jdmy = gameInput.navY
+		jdmx = gameInput.navX
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 4
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 4 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
-		If jdmy <> 0 Then ignorejoy = True
-		If jdmx <> 0 Then ignorexjoy = True
+
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 7
-			jb = jb + JoyDown(i,joyport)
-		Next
+
 		If (KeyDown(KEY_LEFT) Or MouseDown(1)) And bombtime = 0 Then jdmx = -1;bombtime = 20
 		If (KeyDown(KEY_RIGHT) Or MouseDown(2)) And bombtime = 0 Then jdmx = 1;bombtime = 20
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 4;bombtime = 20
+
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Then done = True
+		If MenuBack() Then done = True;sel = 4;bombtime = 20
 		Select sel
 			Case 0
 				If jdmx <> 0
@@ -2115,6 +1739,7 @@ End Function
 
 
 Function MouseControllerSettings(showgame:Int)
+	BeginInputContext()
 
 	Local cnt:Int, xx:Int, yy:Int
 	Local done:Int = False
@@ -2122,15 +1747,15 @@ Function MouseControllerSettings(showgame:Int)
 	Local looper:Int = 0
 	Local sel:Int = 3
 	Local s#,x:Int
-	Local ignorejoy:Int,ignorexjoy:Int
 	Local tim:Int
 	Local lsp:Int = 40
 
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*2+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -2140,66 +1765,53 @@ Function MouseControllerSettings(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Mouse Control",SCREENW/2-280,SCREENH/2-lsp*3,6)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Fire: "+mbut$[m_fire]+" Mouse Button",SCREENW/2-280,SCREENH/2-lsp,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Bomb: "+mbut$[m_bomb]+" Mouse Button",SCREENW/2-280,SCREENH/2,4)
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawGameRect SCREENW/2+100+1,SCREENH/2+lsp+1,m_sensitivity*200,24-2,1
 		DrawString("Mouse Sensitivity:",SCREENW/2-280,SCREENH/2+lsp,4)
 		SetColor 255,255,0
 		DrawGameRect SCREENW/2+100,SCREENH/2+lsp,202,24,0
 
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
+		If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*2,4)
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		cnt:+1
 		Flip 1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
+		jdmy = gameInput.navY
+		jdmx = gameInput.navX
 		If KeyHit(KEY_UP) Or jdmy < 0
 			sel:-1
 			If sel < 0 Then sel = 3
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
 		If KeyHit(KEY_DOWN) Or jdmy > 0
 			sel:+1
 			If sel > 3 Then sel = 0
-			MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-1)+20)
+
 		EndIf
-		If jdmy <> 0 Then ignorejoy = True
-		If jdmx <> 0 Then ignorexjoy = True
+
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 7
-			jb = jb + JoyDown(i,joyport)
-		Next
+
 		If (KeyDown(KEY_LEFT) Or MouseDown(1)) And bombtime = 0 Then jdmx = -1;bombtime = 20
 		If (KeyDown(KEY_RIGHT) Or MouseDown(2)) And bombtime = 0 Then jdmx = 1;bombtime = 20
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Then done = True
-		If KeyHit(KEY_ESCAPE) Then done = True;sel = 4;bombtime = 20
+
+		If KeyHit(k_bomb) Or (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Then done = True
+		If MenuBack() Then done = True;sel = 4;bombtime = 20
 		Select sel
 			Case 0
 				If jdmx <> 0
@@ -2235,12 +1847,12 @@ End Function
 
 
 Function KeyboardControllerSettings(showgame:Int)
+	BeginInputContext()
 	Local done:Int = False
 	Local jb:Int,i:Int
 	Local looper:Int = 0
 	Local sel:Int = 9
 	Local s#,x:Int
-	Local ignorejoy:Int
 	Local key:Int = -10
 	Local flash$
 	Local tim:Int
@@ -2253,8 +1865,12 @@ Function KeyboardControllerSettings(showgame:Int)
 	bombtime = 20
 	FlushKeys()
 	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*5+20)
-	While Not done
+
+	While Not done And Not gameInput.quit
+		PollGameInput()
+		If MenuBack()
+			If key = -1 Then key = -10 Else Exit
+		EndIf
 		Cls
 		xx = MouseX()
 		yy = MouseY()
@@ -2263,82 +1879,76 @@ Function KeyboardControllerSettings(showgame:Int)
 		SetColor 255,0,0
 		DrawString("Keyboard Control",SCREENW/2-280,SCREENH/2-lsp*6,6)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*4,SCREENW,5*4) Then sel = 0
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*4,SCREENW,5*4) Then sel = 0
 		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_move_left];If key = -1 And sel = 0 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Move Left : "+flash$,SCREENW/2-280,SCREENH/2-lsp*4,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*3,SCREENW,5*4) Then sel = 1
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*3,SCREENW,5*4) Then sel = 1
 		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_move_right];If key = -1 And sel = 1 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Move Right: "+flash$,SCREENW/2-280,SCREENH/2-lsp*3,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 2
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_move_up];If key = -1 And sel = 2 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Move Up   : "+flash$,SCREENW/2-280,SCREENH/2-lsp*2,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*1,SCREENW,5*4) Then sel = 3
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*1,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_move_down];If key = -1 And sel = 3 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Move Down : "+flash$,SCREENW/2-280,SCREENH/2-lsp*1,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*0,SCREENW,5*4) Then sel = 4
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*0,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_fire_left];If key = -1 And sel = 4 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Fire Left : "+flash$,SCREENW/2-280,SCREENH/2-lsp*0,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*1,SCREENW,5*4) Then sel = 5
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*1,SCREENW,5*4) Then sel = 5
 		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_fire_right];If key = -1 And sel = 5 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Fire Right: "+flash$,SCREENW/2-280,SCREENH/2+lsp*1,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 6
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 6
 		If sel = 6 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_fire_up];If key = -1 And sel = 6 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Fire Up   : "+flash$,SCREENW/2-280,SCREENH/2+lsp*2,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 7
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 7
 		If sel = 7 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_fire_down];If key = -1 And sel = 7 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Fire Down : "+flash$,SCREENW/2-280,SCREENH/2+lsp*3,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 8
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 8
 		If sel = 8 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		flash$ = keystring[k_bomb];If key = -1 And sel = 8 And looper Mod 30 < 15 Then flash = ""
 		DrawString("Bomb : "+flash$,SCREENW/2-280,SCREENH/2+lsp*4,4)
 
-		If key = -10 Then If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*5,SCREENW,5*4) Then sel = 9
+		If key = -10 Then If gameInput.mouseMoved And RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*5,SCREENW,5*4) Then sel = 9
 		If sel = 9 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*5,4)
 
 		cnt:+1
-		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
+		If Not gameInput.usingPad Then DrawTarget(xx,yy,cnt,4)
 		Flip 1
 		tim = MilliSecs() - tim
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
 		If key = -10
-			jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-			If Abs(jdmy) < 0.6 Then jdmy = 0
-			If jdmy = 0 Then ignorejoy = False
-			If ignorejoy = True
-				jdmy = 0
-			EndIf
+			jdmy = gameInput.navY
 			If KeyHit(KEY_UP) Or jdmy < 0
 				sel:-1
 				If sel < 0 Then sel = 9
-				MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-4)+20)
+
 			EndIf
 			If KeyHit(KEY_DOWN) Or jdmy > 0
 				sel:+1
 				If sel > 9 Then sel = 0
-				MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-4)+20)
+
 			EndIf
 
-			If jdmy <> 0 Then ignorejoy = True
-			If KeyHit(KEY_ENTER) Or KeyHit(KEY_RIGHT) Or KeyHit(KEY_LEFT) Or MouseHit(1)
+			If (KeyHit(KEY_ENTER) Or PadHit(PAD_CONFIRM)) Or KeyHit(KEY_RIGHT) Or KeyHit(KEY_LEFT) Or MouseHit(1)
 				If sel < 9
 					key = -1
 					FlushKeys()
@@ -2349,7 +1959,7 @@ Function KeyboardControllerSettings(showgame:Int)
 		EndIf
 		If key = -1 ' waiting for key press
 			For Local kk:Int = 8 To 255
-				If KeyDown(kk) Then FlushKeys();key=kk;Exit
+				If KeyHit(kk) Then FlushKeys();key=kk;Exit
 			Next
 		EndIf
 		' key was entered
@@ -2380,1014 +1990,10 @@ Function KeyboardControllerSettings(showgame:Int)
 		jb = 0
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 7
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True
+
 	Wend
 
 End Function
-
-
-
-
-Function JoypadControllerSettings(showgame:Int)
-	Local xx:Int,yy:Int,cnt:Int
-	Local done:Int = False
-	Local jb:Int,i:Int
-	Local looper:Int = 0
-	Local sel:Int = 7
-	Local s#,x:Int
-	Local ignorejoy:Int, ignorexjoy:Int
-	Local m$,f$
-	Local tim:Int
-	Local lsp:Int = 40
-
-	If j_config = 0
-		m$ = "D Pad"
-		f$ = "4-Buttons"
-	Else
-		f$ = "D Pad"
-		m$ = "4-Buttons"
-	EndIf
-	bombtime = 20
-	FlushKeys()
-	FlushMouse()
-	MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*4+20)
-	While Not done
-		Cls
-		xx= MouseX()
-		yy = MouseY()
-
-		tim = MilliSecs()
-		If showgame Then DrawAllStatic(.6)
-		SetColor 255,0,0
-		DrawString("Joypad Control",SCREENW/2-280,SCREENH/2-lsp*4,6)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp*2,SCREENW,5*4) Then sel = 0
-		If sel = 0 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Move: "+m$+"  Fire: "+f$,SCREENW/2-280,SCREENH/2-lsp*2,4)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2-lsp,SCREENW,5*4) Then sel = 1
-		If sel = 1 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Bomb: Button  ["+(j_pad_bomb+1)+"]",SCREENW/2-280,SCREENH/2-lsp,4)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 2
-		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Option: Button  ["+(j_pad_option+1)+"]",SCREENW/2-280,SCREENH/2,4)
-
-		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+64,SCREENH/2+lsp*1,40,30) Then sel = 3
-		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawGameRect SCREENW/2+64,SCREENH/2+lsp*1,40,30,0
-		DrawString((j_pad_4+1),SCREENW/2+64+8,SCREENH/2+lsp*1+8,3)
-
-		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2,SCREENH/2+lsp*2,40,30) Then sel = 4
-		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawGameRect SCREENW/2,SCREENH/2+lsp*2,40,30,0
-		DrawString((j_pad_1+1),SCREENW/2+8,SCREENH/2+lsp*2+8,3)
-
-		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+128,SCREENH/2+lsp*2,40,30) Then sel = 5
-		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawGameRect SCREENW/2+128,SCREENH/2+lsp*2,40,30,0
-		DrawString((j_pad_3+1),SCREENW/2+128+8,SCREENH/2+lsp*2+8,3)
-
-		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+64,SCREENH/2+lsp*3,40,30) Then sel = 6
-		If sel = 6 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawGameRect SCREENW/2+64,SCREENH/2+lsp*3,40,30,0
-		DrawString((j_pad_2+1),SCREENW/2+64+8,SCREENH/2+lsp*3+8,3)
-
-		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 7
-		If sel = 7 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		DrawString("Done",SCREENW/2-280,SCREENH/2+lsp*4,4)
-		DrawTarget(xx,yy,cnt,4)
-		cnt:+1
-		Flip 1
-		tim = MilliSecs() - tim
-		If tim < 20 And tim > 0
-			Delay 20-tim
-		EndIf
-		jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-		If Abs(jdmy) < 0.6 Then jdmy = 0
-		If jdmy = 0 Then ignorejoy = False
-		If ignorejoy = True
-			jdmy = 0
-		EndIf
-		jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-		If Abs(jdmx) < 0.6 Then jdmx = 0
-		If jdmx = 0 Then ignorexjoy = False
-		If ignorexjoy = True
-			jdmx = 0
-		EndIf
-		If jdmy <> 0 Then ignorejoy = True
-		If jdmx <> 0 Then ignorexjoy = True
-		If KeyHit(KEY_UP) Or jdmy < 0
-			sel:-1
-			If sel < 0 Then sel = 7
-			Select sel
-				Case 3
-					MoveMouse(SCREENW/2+64-20,SCREENH/2+lsp*1+20)
-				Case 4
-					MoveMouse(SCREENW/2-20,SCREENH/2+lsp*2+20)
-				Case 5
-					MoveMouse(SCREENW/2+128-20,SCREENH/2+lsp*2+20)
-				Case 6
-					MoveMouse(SCREENW/2+64-20,SCREENH/2+lsp*3+20)
-				Case 7
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-3)+20)
-				Default
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-2)+20)
-			End Select
-		EndIf
-		If KeyHit(KEY_DOWN) Or jdmy > 0
-			sel:+1
-			If sel > 7 Then sel = 0
-			Select sel
-				Case 3
-					MoveMouse(SCREENW/2+64-20,SCREENH/2+lsp*1+20)
-				Case 4
-					MoveMouse(SCREENW/2-20,SCREENH/2+lsp*2+20)
-				Case 5
-					MoveMouse(SCREENW/2+128-20,SCREENH/2+lsp*2+20)
-				Case 6
-					MoveMouse(SCREENW/2+64-20,SCREENH/2+lsp*3+20)
-				Case 7
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-3)+20)
-				Default
-					MoveMouse(SCREENW/2-280-20,SCREENH/2+lsp*(sel-2)+20)
-			End Select
-		EndIf
-
-		jb = 0
-		bombtime = bombtime - 1
-		If bombtime < 0 Then bombtime = 0
-		For i = 0 To 15
-			jb = jb + JoyDown(i,joyport)
-		Next
-		If jb > 0 And bombtime = 0 And looper > 15*8 Then done = True;bombtime = 20
-		If KeyHit(KEY_ESCAPE) Then done = True;sel=7;bombtime = 20
-		If KeyHit(KEY_LEFT) Or MouseHit(1) Then jdmx = -1
-		If KeyHit(KEY_RIGHT) Or MouseHit(2) Then jdmx = 1
-		If KeyHit(KEY_ENTER) Then jdmx = 1
-		Select sel
-			Case 0
-				If jdmx <> 0 j_config = 1-j_config
-				done = False
-				If j_config = 0
-					m$ = "D Pad"
-					f$ = "4-Buttons"
-				Else
-					f$ = "D Pad"
-					m$ = "4-Buttons"
-				EndIf
-			Case 1
-				If jdmx < 0
-					j_pad_bomb:-1
-					If j_pad_bomb < 0 Then j_pad_bomb = 0
-				Else If jdmx > 0
-					j_pad_bomb:+1
-					If j_pad_bomb > 15 Then j_pad_bomb = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_bomb = i
-				Next
-				done = False
-			Case 2
-				If jdmx < 0
-					j_pad_option:-1
-					If j_pad_option < 0 Then j_pad_option = 0
-				Else If jdmx > 0
-					j_pad_option:+1
-					If j_pad_option > 15 Then j_pad_option = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_option = i
-				Next
-				done = False
-			Case 3
-				If jdmx < 0
-					j_pad_4:-1
-					If j_pad_4 < 0 Then j_pad_4 = 0
-				Else If jdmx > 0
-					j_pad_4:+1
-					If j_pad_4 > 15 Then j_pad_4 = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_4 = i
-				Next
-				done = False
-			Case 4
-				If jdmx < 0
-					j_pad_1:-1
-					If j_pad_1 < 0 Then j_pad_1 = 0
-				Else If jdmx > 0
-					j_pad_1:+1
-					If j_pad_1 > 15 Then j_pad_1 = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_1 = i
-				Next
-				done = False
-			Case 5
-				If jdmx < 0
-					j_pad_3:-1
-					If j_pad_3 < 0 Then j_pad_3 = 0
-				Else If jdmx > 0
-					j_pad_3:+1
-					If j_pad_3 > 15 Then j_pad_3 = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_3 = i
-				Next
-				done = False
-			Case 6
-				If jdmx < 0
-					j_pad_2:-1
-					If j_pad_2 < 0 Then j_pad_2 = 0
-				Else If jdmx > 0
-					j_pad_2:+1
-					If j_pad_2 > 15 Then j_pad_2 = 15
-				EndIf
-				For i = 0 To 15
-					If JoyDown(i,joyport) Then j_pad_2 = i
-				Next
-				done = False
-			Case 7
-				If jdmx <> 0 Then done = True
-				'exit
-		End Select
-		looper :+8
-	Wend
-
-End Function
-
-
-
-Function DualAnalogControllerSettings()
-
-	Local done:Int = False
-	Local tim:Int
-	Local cnt:Int
-
-	SetOrigin (SCREENW-640)/2,(SCREENH-480)/2
-
-	While Not done
-		Cls
-		tim = MilliSecs()
-		drawconfigstuff()
-
-		mx = MouseX()
-		my = MouseY()
-		If mx>640 Then mx = 640
-		If my>550 Then my = 550
-		If assigning = False
-			done = CheckInput(joyport)
-		Else
-			AssignAllJoyAxis(joyport)
-			If ax Mod 1 = 1 Then If GetJoyAxis(joyport,1) = -1 Then ax = ax + 1
-			If ax = 8 Then assigning = False
-		EndIf
-
-		' map the Input values so the red dots can be drawn in position
-		Local x1j# = GetJoyByAxis(joyport,j[joyport].x1id-1,j[joyport].x1invert,j[joyport].x1scale,j[joyport].x1center)
-		Local y1j# = GetJoyByAxis(joyport,j[joyport].y1id-1,j[joyport].y1invert,j[joyport].y1scale,j[joyport].y1center)
-		Local x2j# = GetJoyByAxis(joyport,j[joyport].x2id-1,j[joyport].x2invert,j[joyport].x2scale,j[joyport].x2center)
-		Local y2j# = GetJoyByAxis(joyport,j[joyport].y2id-1,j[joyport].y2invert,j[joyport].y2scale,j[joyport].y2center)
-
-		' dead band
-		If Abs(x1j) < j[joyport].x1dz Then x1j = 0
-		If Abs(y1j) < j[joyport].y1dz Then y1j = 0
-		If Abs(x2j) < j[joyport].x2dz Then x2j = 0
-		If Abs(y2j) < j[joyport].y2dz Then y2j = 0
-
-		'scale to box size
-		Local x1:Int = FitValueToRange#( x1j, -1, 1,  10, 110 )
-		Local y1:Int = FitValueToRange#( y1j, -1, 1, 275, 375 )
-		Local x2:Int = FitValueToRange#( x2j, -1, 1, 250, 350 )
-		Local y2:Int = FitValueToRange#( y2j, -1, 1, 275, 375 )
-
-		'draw the control dots
-		SetColor 185,0,0
-		DrawOval x1-5-j[joyport].x1center*50,y1-5-j[joyport].y1center*50,10,10
-		DrawOval x2-5-j[joyport].x2center*50,y2-5-j[joyport].y2center*50,10,10
-
-		'draw cursor
-		DrawTarget(mx,my,cnt,4)
-
-		If infotimer > 0
-			DrawText info$,320,180
-			infotimer:-1
-		EndIf
-		cnt:+1
-		Flip 1
-		tim = MilliSecs() - tim
-		If tim < 20 And tim > 0
-			Delay 20-tim
-		EndIf
-	Wend
-
-	SetOrigin 0,0
-
-End Function
-
-
-
-
-
-Function DrawConfigStuff()
-
-	SetBlend MASKBLEND
-	SetAlpha 1
-
-	SetColor 255,255,255
-	DrawText "Dual Stick Configuration",170,10
-
-	SetColor 128,128,128
-	DrawGameRect 10,32,600,130,0 ' large text info box outline
-	DrawText "Select controller port (0 for  single joypad)",15,35
-	DrawText "others are only needed for multiple joypads.",15,35+1*12
-	DrawText "Assign controls by clicking AXIS WIZARD or individually",15,35+2*12
-	DrawText "cycle through available controls by left clicking on the axis box.",15,35+3*12
-	DrawText "Right click on a box to toggle invert On or Off.",15,35+4*12
-	DrawText "Blue box is normal, Orange box indicates an inverted axis.",15,35+5*12
-	DrawText "Click on Stick 1/2 boxes and use cursor keys to adjust centering and",15,35+6*12
-	DrawText "Dead Zone.  Make sure the red dot is in the green square when at rest.",15,35+7*12
-	DrawText "If it drifts, press SHIFT+Cursor Keys to adjust Dead Zone.",15,35+8*12
-
-
-	SetColor 35,65,115
-	Select joyport ' draw current port selected
-		Case 0
-			DrawGameRect 100+10,130+45,45,25,1
-		Case 1
-			DrawGameRect 100+60,130+45,45,25,1
-		Case 2
-			DrawGameRect 100+110,130+45,45,25,1
-		Case 3
-			DrawGameRect 100+160,130+45,45,25,1
-	End Select
-
-	SetColor 0,0,100
-	DrawGameRect 100+10,130+45,45,25,0 ' draw ports (outlines)
-	DrawGameRect 100+60,130+45,45,25,0
-	DrawGameRect 100+110,130+45,45,25,0
-	DrawGameRect 100+160,130+45,45,25,0
-
-	SetColor 255,255,255
-	DrawText "Controller:",10,130+50
-	DrawText "0",100+27,130+53
-	DrawText "1",100+77,130+53
-	DrawText "2",100+127,130+53
-	DrawText "3",100+177,130+53
-
-	If assigning = True
-		SetColor 100,100,100
-		DrawGameRect 10,225,135,25,1
-	EndIf
-	SetColor 255,255,255
-	DrawGameRect 10,225,135,25,0
-	DrawText "AXIS WIZARD",25,230
-
-	If assigningoption = True
-		SetColor 100,100,100
-		DrawGameRect 180,225,100,25,1
-	EndIf
-	SetColor 255,255,255
-	DrawGameRect 180,225,100,25,0
-	DrawText "OPTION = "+(j[joyport].optionbutton+1),190,230
-
-	If assigningbomb = True
-		SetColor 100,100,100
-		DrawGameRect 320,225,100,25,1
-	EndIf
-	SetColor 255,255,255
-	DrawGameRect 320,225,100,25,0
-	DrawText "BOMB = "+(j[joyport].bombbutton+1),330,230
-
-	'draw boxes For axis controls
-	SetColor 50,65,220
-	If j[joyport].x1invert =-1 Then SetColor 255,128,0
-	DrawGameRect 10,395,175,14,1
-
-	SetColor 50,65,220
-	If j[joyport].y1invert =-1 Then SetColor 255,128,0
-	DrawGameRect 10,415,175,14,1
-
-	SetColor 50,65,220
-	If j[joyport].x2invert =-1 Then SetColor 255,128,0
-	DrawGameRect 250,395,175,14,1
-
-	SetColor 50,65,220
-	If j[joyport].y2invert =-1 Then SetColor 255,128,0
-	DrawGameRect 250,415,175,14,1
-
-	SetColor 255,255,255
-	DrawText "Stick 1",10,380
-	DrawText "Stick 2",250,380
-	DrawText "X axis: " + joy_label$[j[joyport].x1id],20,396
-	DrawText "X axis: " + joy_label$[j[joyport].x2id],260,396
-	DrawText "Y axis: " + joy_label$[j[joyport].y1id],20,416
-	DrawText "Y axis: " + joy_label$[j[joyport].y2id],260,416
-
-	If deadbandadjust = 1
-		SetColor 100,100,100
-		DrawGameRect 10+1,275+1, 100-2,100-2,1
-	ElseIf deadbandadjust = 2
-		SetColor 100,100,100
-		DrawGameRect 250+1,275+1, 100-2,100-2,1
-	EndIf
-
-	SetColor 0,255,0
-	DrawGameRect 10+50-8,275+50-8,16,16
-	DrawGameRect 250+50-8,275+50-8,16,16
-
-	SetColor 255,255,255
-	DrawGameRect 10,275, 100,100,0 'draw outline boxes for controllers
-	DrawGameRect 250,275, 100,100,0
-
-	DrawText "X Scaling Factor",10,440
-	DrawText "X Scaling Factor",250,440
-	DrawText "Y Scaling Factor",10,480
-	DrawText "Y Scaling Factor",250,480
-
-	SetColor 35,65,115
-	Select j[joyport].x1scale
-		Case 1
-			DrawGameRect 10,455,45,20,1
-		Case 128
-			DrawGameRect 60,455,45,20,1
-		Case 255
-			DrawGameRect 110,455,45,20,1
-	End Select
-	Select j[joyport].y1scale
-		Case 1
-			DrawGameRect 10,495,45,20,1
-		Case 128
-			DrawGameRect 60,495,45,20,1
-		Case 255
-			DrawGameRect 110,495,45,20,1
-	End Select
-	Select j[joyport].x2scale
-		Case 1
-			DrawGameRect 240+10,455,45,20,1
-		Case 128
-			DrawGameRect 240+60,455,45,20,1
-		Case 255
-			DrawGameRect 240+110,455,45,20,1
-	End Select
-	Select j[joyport].y2scale
-		Case 1
-			DrawGameRect 240+10,495,45,20,1
-		Case 128
-			DrawGameRect 240+60,495,45,20,1
-		Case 255
-			DrawGameRect 240+110,495,45,20,1
-	End Select
-
-	SetColor 255,255,255
-	DrawText "1",27,460
-	DrawText "180",70,460
-	DrawText "255",120,460
-
-	DrawText "1",240+27,460
-	DrawText "180",240+70,460
-	DrawText "255",240+120,460
-
-	DrawText "1",27,500
-	DrawText "180",70,500
-	DrawText "255",120,500
-
-	DrawText "1",240+27,500
-	DrawText "180",240+70,500
-	DrawText "255",240+120,500
-
-	SetColor 0,0,100
-	DrawGameRect 10,455,45,20,0
-	DrawGameRect 60,455,45,20,0
-	DrawGameRect 110,455,45,20,0
-
-	DrawGameRect 240+10,455,45,20,0
-	DrawGameRect 240+60,455,45,20,0
-	DrawGameRect 240+110,455,45,20,0
-
-	DrawGameRect 10,495,45,20,0
-	DrawGameRect 60,495,45,20,0
-	DrawGameRect 110,495,45,20,0
-
-	DrawGameRect 240+10,495,45,20,0
-	DrawGameRect 240+60,495,45,20,0
-	DrawGameRect 240+110,495,45,20,0
-
-	SetColor 255,32,32
-	DrawText "DZ 1",120,270
-	DrawText "DZ 2",360,270
-	DrawText "C 1",120,330
-	DrawText "C 2",360,330
-	SetColor 32,32,240
-	DrawText "X: "+j[joyport].x1dz,120,290
-	DrawText "Y: "+j[joyport].y1dz,120,305
-	DrawText "X: "+j[joyport].x2dz,360,290
-	DrawText "Y: "+j[joyport].y2dz,360,305
-	DrawText "X: "+j[joyport].x1center,120,350
-	DrawText "Y: "+j[joyport].y1center,120,365
-	DrawText "X: "+j[joyport].x2center,360,350
-	DrawText "Y: "+j[joyport].y2center,360,365
-
-	SetColor 64,64,64
-	DrawGameRect 490,275+40,110,20
-	DrawGameRect 490,300+40,110,20
-	DrawGameRect 490,325+40,110,20
-	DrawGameRect 490,350+40,110,20
-	SetColor 255,255,255
-	DrawText "(D)ebug",493,277+40
-	DrawText "(S)ave Config",493,302+40
-	DrawText "(L)oad Config",493,327+40
-	DrawText "(E)xit",493,352+40
-
-	If debug = 1
-		SetColor 16,16,16
-		DrawGameRect 0,25,640,217+80,1
-		SetColor 48,48,48
-		DrawGameRect 40,30,300,200+80,1
-		SetColor 64,64,64 ' draw grey boxes
-		For Local loop:Int = 50 To 190+80 Step 20
-			DrawGameRect 180,loop,150,15
-		Next
-		DrawGameRect 40,30,300,200+60,0
-		DrawGameRect 39,29,302,202+60,0
-
-		SetColor 128,128,128 ' draw boxes showing movement of axis
-		DrawGameRect 180,50,FitValueToRange#( JoyX(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,70,FitValueToRange#( JoyY(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,90,FitValueToRange#( JoyZ(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,110,FitValueToRange#( JoyR(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,130,FitValueToRange#( JoyU(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,150,FitValueToRange#( JoyV(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,170,FitValueToRange#( JoyPitch(joyport), -180, 180, 0, 150 ),15,1
-		DrawGameRect 180,190,FitValueToRange#( JoyRoll(joyport), -180, 180, 0, 150 ),15,1
-		DrawGameRect 180,210,FitValueToRange#( JoyYaw(joyport), -180, 180, 0, 150 ),15,1
-		DrawGameRect 180,230,FitValueToRange#( JoyHat(joyport), -1, 1, 0, 150 ),15,1
-		DrawGameRect 180,250,FitValueToRange#( JoyWheel(joyport), -1, 1, 0, 150 ),15,1
-'		DrawGameRect 180,270,FitValueToRange#( JoyWhat(joyport,12), -1, 1, 0, 150 ),15,1
-'		DrawGameRect 180,290,FitValueToRange#( JoyWhat(joyport,13), -1, 1, 0, 150 ),15,1
-
-		SetColor 160,160,160 ' show values of axis
-		DrawText "1.  JoyX()      : " + JoyX(joyport) ,50,50
-		DrawText "2.  JoyY()      : " + JoyY(joyport),50,70
-		DrawText "3.  JoyZ()      : " + JoyZ(joyport),50,90
-		DrawText "4.  JoyR()      : " + JoyR(joyport),50,110
-		DrawText "5.  JoyU()      : " + JoyU(joyport),50,130
-		DrawText "6.  JoyV()      : " + JoyV(joyport),50,150
-		DrawText "7.  JoyPitch()  : " + JoyPitch(joyport),50,170
-		DrawText "8.  JoyRoll()   : " + JoyRoll(joyport),50,190
-		DrawText "9.  JoyYaw()    : " + JoyYaw(joyport),50,210
-		DrawText "10. JoyHat()    : " + JoyHat(joyport),50,230
-		DrawText "11. JoyWheel()  : " + JoyWheel(joyport),50,250
-'		DrawText "12. JoyAxis12()  : " + JoyWhat(joyport,12),50,270
-'		DrawText "13. JoyAxis13()  : " + JoyWhat(joyport,13),50,290
-	EndIf
-End Function
-
-
-
-Function CheckInput:Int(port:Int)
-	SetColor 255,0,0
-	If RectsOverlap  (mx-2,my-2,4,4,10,395,175,14) ' joy x 1
-		DrawGameRect 9,394,177,16,0 ' draw a highlight rectangle
-		If MouseHit(1) Then j[port].x1id:+1
-		If MouseHit(2) Then j[port].x1invert = - j[port].x1invert
-		If j[port].x1id > 15 Then j[port].x1id = 0
-		If j[port].x1id < 0 Then j[port].x1id = 15
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,10,415,175,14) ' joy y 1
-		DrawGameRect 9,414,177,16,0	' draw a highlight rectangle
-		If MouseHit(1) Then j[port].y1id:+1
-		If MouseHit(2) Then j[port].y1invert = - j[port].y1invert
-		If j[port].y1id > 15 Then j[port].y1id = 0
-		If j[port].y1id < 0 Then j[port].y1id = 15
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,250,395,175,14) ' joy x 2
-		DrawGameRect 249,394,177,16,0	' draw a highlight rectangle
-		If MouseHit(1) Then j[port].x2id:+1
-		If MouseHit(2) Then j[port].x2invert = - j[port].x2invert
-		If j[port].x2id > 15 Then j[port].x2id = 0
-		If j[port].x2id < 0 Then j[port].x2id = 15
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,250,415,175,14) ' joy y 2
-		DrawGameRect 249,414,177,16,0	' draw a highlight rectangle
-		If MouseHit(1) Then j[port].y2id:+1
-		If MouseHit(2) Then j[port].y2invert = - j[port].y2invert
-		If j[port].y2id > 15 Then j[port].y2id = 0
-		If j[port].y2id < 0 Then j[port].y2id = 15
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,10,275,100,100)
-		DrawGameRect 10,275,100,100,0
-		If MouseHit(1)
-			If deadbandadjust = 1
-				deadbandadjust = 0
-			Else
-				deadbandadjust = 1
-			EndIf
-		EndIf
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,250,275,100,100)
-		DrawGameRect 250,275,100,100,0
-		If MouseHit(1)
-			If deadbandadjust = 2
-				deadbandadjust = 0
-			Else
-				deadbandadjust = 2
-			EndIf
-		EndIf
-	EndIf
-
-	'joy port selection
-	If RectsOverlap  (mx-2,my-2,4,4,100+10,130+45,45,25)
-		DrawGameRect 100+10,130+45,45,25,0
-		If MouseHit(1) Then joyport = 0
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,100+60,130+45,45,25)
-		DrawGameRect 100+60,130+45,45,25,0
-		If MouseHit(1) Then joyport = 1
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,100+110,130+45,45,25)
-		DrawGameRect 100+110,130+45,45,25,0
-		If MouseHit(1) Then joyport = 2
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,100+160,130+45,45,25)
-		DrawGameRect 100+160,130+45,45,25,0
-		If MouseHit(1) Then joyport = 3
-	EndIf
-
-	'scaling
-	If RectsOverlap  (mx-2,my-2,4,4,10,455,45,20)
-		DrawGameRect 10,455,45,20,0
-		If MouseHit(1) Then j[joyport].x1scale = 1
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,60,455,45,20)
-		DrawGameRect 60,455,45,20,0
-		If MouseHit(1) Then j[joyport].x1scale = 180
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,110,455,45,20)
-		DrawGameRect 110,455,45,20,0
-		If MouseHit(1) Then j[joyport].x1scale = 255
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,10,495,45,20)
-		DrawGameRect 10,495,45,20,0
-		If MouseHit(1) Then j[joyport].y1scale = 1
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,60,495,45,20)
-		DrawGameRect 60,495,45,20,0
-		If MouseHit(1) Then j[joyport].y1scale = 180
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,110,495,45,20)
-		DrawGameRect 110,495,45,20,0
-		If MouseHit(1) Then j[joyport].y1scale = 255
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,240+10,455,45,20)
-		DrawGameRect 240+10,455,45,20,0
-		If MouseHit(1) Then j[joyport].x2scale = 1
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,240+60,455,45,20)
-		DrawGameRect 240+60,455,45,20,0
-		If MouseHit(1) Then j[joyport].x2scale = 180
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,240+110,455,45,20)
-		DrawGameRect 240+110,455,45,20,0
-		If MouseHit(1) Then j[joyport].x2scale = 255
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,240+10,495,45,20)
-		DrawGameRect 240+10,495,45,20,0
-		If MouseHit(1) Then j[joyport].y2scale = 1
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,240+60,495,45,20)
-		DrawGameRect 240+60,495,45,20,0
-		If MouseHit(1) Then j[joyport].y2scale = 180
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,240+110,495,45,20)
-		DrawGameRect 240+110,495,45,20,0
-		If MouseHit(1) Then j[joyport].y2scale = 255
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,10,225,135,25) ' assign all axis button
-		DrawGameRect 10,225,135,25,0
-		If MouseHit(1) Then assigning = True;ax = 0;assigningoption = False;assigningbomb = False
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,180,225,100,25) ' option button
-		DrawGameRect 180,225,100,25,0
-		If MouseHit(1) Then assigningoption = True;assigningbomb = False
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,320,225,100,25) ' bomb button
-		DrawGameRect 320,225,100,25,0
-		If MouseHit(1) Then assigningbomb = True;assigningoption = False
-	EndIf
-
-	If assigningoption
-		For Local i:Int = 0 To 15
-			If JoyDown(i,joyport) Then j[joyport].optionbutton = i
-		Next
-		If KeyHit(KEY_ENTER)
-			j[joyport].optionbutton:+ 1
-			If j[joyport].optionbutton > 15 Then j[joyport].optionbutton = 0
-		EndIf
-	EndIf
-
-	If assigningbomb
-		For Local i:Int = 0 To 15
-			If JoyDown(i,joyport) Then j[joyport].bombbutton = i
-		Next
-		If KeyHit(KEY_ENTER)
-			j[joyport].bombbutton:+ 1
-			If j[joyport].bombbutton> 15 Then j[joyport].bombbutton = 0
-		EndIf
-	EndIf
-
-	If KeyHit(KEY_1) Then joyport = 0 '1 key
-	If KeyHit(KEY_2) Then joyport = 1 '2 key
-	If KeyHit(KEY_3) Then joyport = 2 '3 key
-	If KeyHit(KEY_4) Then joyport = 3 '4 key
-
-	If RectsOverlap  (mx-2,my-2,4,4,490,275+40,110,20) ' debug toggle
-		DrawGameRect 490,275+40,110,20,0
-		If MouseHit (1) Then debug = 1 - Debug
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,490,300+40,110,20) ' save button
-		DrawGameRect 490,300+40,110,20,0
-		If MouseHit (1) Then SaveConfig()
-	EndIf
-
-	If RectsOverlap  (mx-2,my-2,4,4,490,325+40,110,20) 'load button
-		DrawGameRect 490,325+40,110,20,0
-		If MouseHit (1) Then LoadConfig()
-	EndIf
-
-	If KeyHit(KEY_D) Then debug = 1 - Debug ' tab key,... turns on debug
-
-	If KeyHit(KEY_S) ' S key
-		SaveConfig()
-	EndIf
-
-	If KeyHit(KEY_L) ' L key
-		LoadConfig()
-	EndIf
-
-	If KeyHit(KEY_E) ' E For Exit
-		Return True
-	EndIf
-
-	If KeyDown(KEY_LSHIFT) Or KeyDown(KEY_RSHIFT)
-		If deadbandadjust > 0
-			If deadbandadjust = 1
-				If KeyDown(KEY_UP)
-					j[joyport].y1dz:-.01
-					If j[joyport].y1dz < 0 Then j[joyport].y1dz = 0
-				EndIf
-				If KeyDown(KEY_DOWN)
-					j[joyport].y1dz:+.01
-					If j[joyport].y1dz > .5 Then j[joyport].y1dz = .5
-				EndIf
-				If KeyDown(KEY_LEFT)
-					j[joyport].x1dz:-.01
-					If j[joyport].x1dz < 0 Then j[joyport].x1dz = 0
-				EndIf
-				If KeyDown(KEY_RIGHT)
-					j[joyport].x1dz:+.01
-					If j[joyport].x1dz > .5 Then j[joyport].x1dz = .5
-				EndIf
-			Else
-				If KeyDown(KEY_UP)
-					j[joyport].y2dz:-.01
-					If j[joyport].y2dz < -.9 Then j[joyport].y2dz= -.9
-				EndIf
-				If KeyDown(KEY_DOWN)
-					j[joyport].y2dz:+.01
-					If j[joyport].y2dz > .9 Then j[joyport].y2dz= .9
-				EndIf
-				If KeyDown(KEY_LEFT)
-					j[joyport].x2dz:-.01
-					If j[joyport].x2dz < -.9 Then j[joyport].x2dz= -.9
-				EndIf
-				If KeyDown(KEY_RIGHT)
-					j[joyport].x2dz:+.01
-					If j[joyport].x2dz > .9 Then j[joyport].x2dz= .9
-				EndIf
-			EndIf
-		EndIf
-	Else
-		If deadbandadjust > 0
-			If deadbandadjust = 1
-				If KeyDown(KEY_UP)
-					j[joyport].y1center:-.01
-					If j[joyport].y1center < -.9 Then j[joyport].y1center = -.9
-				EndIf
-				If KeyDown(KEY_DOWN)
-					j[joyport].y1center:+.01
-					If j[joyport].y1center > .9 Then j[joyport].y1center = .9
-				EndIf
-				If KeyDown(KEY_LEFT)
-					j[joyport].x1center:-.01
-					If j[joyport].x1center < -.9 Then j[joyport].x1center = -.9
-				EndIf
-				If KeyDown(KEY_RIGHT)
-					j[joyport].x1center:+.01
-					If j[joyport].x1center > .9 Then j[joyport].x1center = .9
-				EndIf
-			Else
-				If KeyDown(KEY_UP)
-					j[joyport].y2center:-.01
-					If j[joyport].y2center < -.9 Then j[joyport].y2center= -.9
-				EndIf
-				If KeyDown(KEY_DOWN)
-					j[joyport].y2center:+.01
-					If j[joyport].y2center > .9 Then j[joyport].y2center= .9
-				EndIf
-				If KeyDown(KEY_LEFT)
-					j[joyport].x2center:-.01
-					If j[joyport].x2center < -.9 Then j[joyport].x2center= -.9
-				EndIf
-				If KeyDown(KEY_RIGHT)
-					j[joyport].x2center:+.01
-					If j[joyport].x2center > .9 Then j[joyport].x2center= .9
-				EndIf
-			EndIf
-		EndIf
-	EndIf
-	If RectsOverlap  (mx-2,my-2,4,4,490,350+40,110,20) ' quit button
-		DrawGameRect 490,350+40,110,20,0
-		If MouseHit (1) Then Return True
-	EndIf
-
-	Return False
-
-End Function
-
-
-
-
-Function GetJoyAxis:Int(port:Int,sc#)
-	' on some joysticks, when an axis is not present the value is the Max
-	' so we needed to get around that with the double check
-	Local count:Int = 0
-	While count < 30
-		If Abs(JoyX(port)) > .5*sc And Abs(JoyX(port)) < .9*sc Return 1
-		If Abs(JoyY(port)) > .5*sc And Abs(JoyY(port)) < .9*sc Return 2
-		If Abs(JoyZ(port)) > .5*sc And Abs(JoyZ(port)) < .9*sc Return 3
-		If Abs(JoyR(port)) > .5*sc And Abs(JoyR(port)) < .9*sc Return 4
-		If Abs(JoyU(port)) > .5*sc And Abs(JoyU(port)) < .9*sc Return 5
-		If Abs(JoyV(port)) > .5*sc And Abs(JoyV(port)) < .9*sc Return 6
-		If Abs(JoyYaw(port)) > .5*sc And Abs(JoyYaw(port)) < .9*sc Return 7
-		If Abs(JoyPitch(port)) > .5*sc And Abs(JoyPitch(port)) < .9*sc Return 8
-		If Abs(JoyRoll(port)) > .5*sc And Abs(JoyRoll(port)) < .9*sc Return 9
-		If Abs(JoyHat(port)) > .5*sc And Abs(JoyHat(port)) < .9*sc Return 10
-		If Abs(JoyWheel(port)) > .5*sc And Abs(JoyWheel(port)) < .9*sc Return 11
-'		If Abs(JoyWhat(port,12)) > .5*sc And Abs(JoyWhat(port,12)) < .9*sc Return 12
-'		If Abs(JoyWhat(port,13)) > .5*sc And Abs(JoyWhat(port,13)) < .9*sc Return 13
-'		If Abs(JoyWhat(port,14)) > .5*sc And Abs(JoyWhat(port,14)) < .9*sc Return 14
-'		If Abs(JoyWhat(port,15)) > .5*sc And Abs(JoyWhat(port,15)) < .9*sc Return 15
-
-		If KeyHit(KEY_ESCAPE) Then Return 0
-		count:+1
-		Delay 2
-	Wend
-	Return -1
-
-End Function
-
-
-
-
-Function AssignAllJoyAxis(port:Int)
-
-	Local jax:Int
-
-	SetColor 0,255,0
-	Select ax/2
-		Case 0
-			DrawText "move stick 1 left or right (Escape to Cancel)",180,210
-			jax = getjoyaxis(port,j[port].x1scale)
-			If jax >= 0
-			 	If jax > 0 Then j[port].x1id = jax
-				ax:+1
-				infotimer = 30*4
-				info$ = "Stick 1 X axis assigned to " + joy_label[j[port].x1id]
-			EndIf
-		Case 1
-			DrawText "move stick 1 up or down (Escape to Cancel)",180,210
-			jax = getjoyaxis(port,j[port].y1scale)
-			If jax >= 0
-			 	If jax > 0 Then j[port].y1id = jax
-				ax:+1
-				infotimer = 30*4
-				info$ = "Stick 1 Y axis assigned to " + joy_label[j[port].y1id]
-			EndIf
-		Case 2
-			DrawText "move stick 2 left or right (Escape to Cancel)",180,210
-			jax = getjoyaxis(port,j[port].x2scale)
-			If jax >= 0
-			 	If jax > 0 Then j[port].x2id = jax
-				ax:+1
-				infotimer = 30*4
-				info$ = "Stick 2 X axis assigned to " + joy_label[j[port].x2id]
-			EndIf
-		Case 3
-			DrawText "move stick 2 up or down (Escape to Cancel)",180,210
-			jax = getjoyaxis(port,j[port].y2scale)
-			If jax >= 0
-			 	If jax > 0 Then j[port].y2id = jax
-				ax:+1
-				infotimer = 60*4
-				info$ = "Stick 2 Y axis assigned to " + joy_label[j[port].y2id]
-			EndIf
-	End Select
-
-End Function
-
-
-
-' Function JoyWhat#( port:Int=0, axis:Int )
-' 	SampleJoy port
-' 	Return joy_axis[port*16+axis]
-' End Function
-
-
-Function GetJoyByAxis#( port:Int, axis:Int, invert:Int=1, sc#, db# )
-	Local joy#
-
-	Select axis
-		Case 0
-			joy=JoyX(port)/sc*invert - db
-		Case 1
-			joy=JoyY(port)/sc*invert - db
-		Case 2
-			joy=JoyZ(port)/sc*invert - db
-		Case 3
-			joy=JoyR(port)/sc*invert - db
-		Case 4
-			joy=JoyU(port)/sc*invert - db
-		Case 5
-			joy=JoyV(port)/sc*invert - db
-		Case 6
-			joy=JoyYaw(port)/sc*invert - db
-		Case 7
-			joy=JoyPitch(port)/sc*invert - db
-		Case 8
-			joy=JoyRoll(port)/sc*invert - db
-		Case 9
-			joy=JoyHat(port)/sc*invert - db
-		Case 10
-			joy=JoyWheel(port)/sc*invert - db
-'		Case 11
-'			joy=JoyWhat(port,12)/sc*invert - db
-'		Case 12
-'			joy=JoyWhat(port,13)/sc*invert - db
-'		Case 13
-'			joy=JoyWhat(port,14)/sc*invert - db
-'		Case 14
-'			joy=JoyWhat(port,15)/sc*invert - db
-	End Select
-	Return joy  '/sc * invert)
-End Function
-
-
-
-Function SetController()
-
-	axis_move_x = j[joyport].x1id-1
-	axis_move_y = j[joyport].y1id-1
-	axis_fire_x = j[joyport].x2id-1
-	axis_fire_y = j[joyport].y2id-1
-	axis_move_x_inv = j[joyport].x1invert
-	axis_move_y_inv = j[joyport].y1invert
-	axis_fire_x_inv = j[joyport].x2invert
-	axis_fire_y_inv = j[joyport].y2invert
-	axis_move_x_sc = j[joyport].x1scale
-	axis_move_y_sc = j[joyport].y1scale
-	axis_fire_x_sc = j[joyport].x2scale
-	axis_fire_y_sc = j[joyport].y2scale
-	axis_move_x_center = j[joyport].x1center
-	axis_move_y_center = j[joyport].y1center
-	axis_fire_x_center = j[joyport].x2center
-	axis_fire_y_center = j[joyport].y2center
-	axis_move_x_dz = j[joyport].x1dz
-	axis_move_y_dz = j[joyport].y1dz
-	axis_fire_x_dz = j[joyport].x2dz
-	axis_fire_y_dz = j[joyport].y2dz
-	j_d_bomb = j[joyport].bombbutton
-	j_d_option = j[joyport].optionbutton
-
-End Function
-
 
 
 

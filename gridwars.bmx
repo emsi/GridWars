@@ -38,7 +38,6 @@ Global g_v_num$ = "5.4"
 Global version$ = "Version "+g_v_num+" - Apr 19, 2006"
 Global advert$ =  "Visit www.incitti.com for more games."
 
-JoyCount() ' needed to init the joystick stuff
 
 Global cheat:Int = False
 Global nokillme:Int = False
@@ -51,7 +50,6 @@ LoadConfig() ' see control.bmx for more global settings
 LoadColours()
 GetGfxModes()
 FindSetting()
-SetController()
 SetupKeyTable()
 If Not SetUp() Then RuntimeError "Unable to create the game graphics window."
 LoadSounds()
@@ -68,6 +66,7 @@ Global upgradetime:Int = 20
 
 Global oldmx# = 0
 Global oldmy# = 0
+Global lastPlayerInputMode:Int = -1
 
 Global gameover:Int = False
 Global dying:Int = False
@@ -173,6 +172,7 @@ ShowMouse()
 SaveConfig()
 SaveColours() 'only needed once
 score.SaveScores()
+gameInput.Close()
 
 End
 
@@ -3274,9 +3274,6 @@ Type score
 		Local slot:Int = 0, t:Int
 		Local name$
 		Local done:Int = False
-		Local ignoreyjoy:Int
-		Local ignorefyjoy:Int
-		Local ignorexjoy:Int
 		Local tim:Int
 
 		gxoff = 0
@@ -3287,29 +3284,17 @@ Type score
 		Local playtime$ = GetPlayTime(gcount)
 		FlushKeys()
 		FlushMouse()
+		BeginInputContext()
 		While done = False
 			Cls
 			tim = MilliSecs()
 
-			jdfy = GetJoyByAxis(joyport, axis_fire_y, axis_fire_y_inv, axis_fire_y_sc, axis_fire_y_center )
-			jdmy = GetJoyByAxis(joyport, axis_move_y, axis_move_y_inv, axis_move_y_sc, axis_move_y_center )
-			jdmx = GetJoyByAxis(joyport, axis_move_x, axis_move_x_inv, axis_move_x_sc, axis_move_x_center )
-			If Abs(jdfy) < 0.3 Then jdfy = 0
-			If Abs(jdmy) < 0.3 Then jdmy = 0
-			If Abs(jdmx) < 0.3 Then jdmx = 0
-			If jdfy = 0 Then ignorefyjoy = False
-			If jdmy = 0 Then ignoreyjoy = False
-			If jdmx = 0 Then ignorexjoy = False
-			If ignoreyjoy = True And bombtime > 0 Then jdmy = 0
-			If ignorefyjoy = True And bombtime > 0 Then jdfy = 0
-			If ignorexjoy = True And bombtime > 0 Then jdmx = 0
-			If KeyDown(KEY_UP) And bombtime = 0 Then jdmy =-1
-			If KeyDown(KEY_DOWN) And bombtime = 0 Then jdmy = 1
-			If KeyHit(KEY_LEFT) Then jdmx =-1
-			If KeyHit(KEY_RIGHT) Then jdmx = 1
-			If jdmy <> 0 Then ignoreyjoy = True
-			If jdfy <> 0 Then ignorefyjoy = True
-			If jdmx <> 0 Then ignorexjoy = True
+			PollGameInput()
+			If gameInput.quit Then Return -20
+			jdfy = PadHit(PAD_CASE)
+			jdmy = gameInput.navY + KeyHit(KEY_DOWN) - KeyHit(KEY_UP)
+			jdmx = gameInput.navX + KeyHit(KEY_RIGHT) - KeyHit(KEY_LEFT)
+			If PadHit(PAD_BACK) Or KeyHit(KEY_BACKSPACE) Then letter[slot] = 32; jdmx = -1
 
 			If KeyDown(KEY_RSHIFT) Or KeyDown(KEY_LSHIFT)
 				For Local kk:Int = 48 To 90
@@ -3417,7 +3402,7 @@ Type score
 			SetColor 255,255,255
 			DrawString("Up and Down to select letter,",SCREENW/2-250,SCREENH/2+80,3)
 			DrawString("Left and Right to select position.",SCREENW/2-250,SCREENH/2+120,3)
-			DrawString("Press Enter when done.",SCREENW/2-250,SCREENH/2+160,3)
+			DrawString("South/Enter: save   West: case",SCREENW/2-250,SCREENH/2+160,3)
 			name$ = ""
 			For t = 0 To 7
 				name$:+ Chr$(letter[t])
@@ -3434,9 +3419,7 @@ Type score
 			bombtime = bombtime - 1
 			If bombtime < 0 Then bombtime = 0
 
-			If KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or ..
-				(JoyDown(j_pad_bomb,joyport) And controltype = 3 And bombtime = 0) Or ..
-				(JoyDown(j_d_bomb,joyport) And controltype = 0 And bombtime = 0)
+			If KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 				bombtime = 20
 				done = True
 			EndIf
@@ -3454,16 +3437,10 @@ Type score
 		'play size
 		ret$:+ playfieldsizes[playsize*2]+"X"+playfieldsizes[playsize*2+1]+","
 		'control type
-		If controltype > 2
-			ret$:+ control_method[controltype]
-			If controltype = 3
-				ret$:+ "-"+j_config+","
-			EndIf
-			If controltype = 4
-				ret$:+ "-"+h_config+","
-			EndIf
+		If gameInput.usingPad
+			ret$ :+ "Gamepad,"
 		Else
-			ret$:+ control_method[controltype]+","
+			ret$ :+ control_method[controltype]+","
 		EndIf
 		'scroll
 		ret$:+ scroll +","
@@ -3524,7 +3501,7 @@ Type score
 		Local hdir$, fn$
 
 		hdir$=GetUserHomeDir()
-		fn$ = hdir+"/.config/gridwars/hiscores.dat"
+		fn$ = ConfigDirectory()+"/hiscores.dat"
 
 		Local fh:TStream = OpenFile(fn)
 		If fh = Null
@@ -3587,7 +3564,7 @@ Type score
 		Local hdir$, fn$
 
 		hdir$=GetUserHomeDir()
-		fn$ = hdir+"/.config/gridwars/hiscores.dat"
+		fn$ = ConfigDirectory()+"/hiscores.dat"
 
 		Local fh:TStream = WriteFile(fn)
 		If fh <> Null
@@ -3645,10 +3622,30 @@ Function Main()
 			ResetGame()
 			dying = True
 			done = GetReady()
+			If gameInput.quit Or done Then Return
 			dying = False
 			Cls
 			Repeat
 				tim = MilliSecs()
+				PollGameInput()
+				If gameInput.quit Then Return
+				If PauseHit()
+					Local ret:Int = Options(True)
+					If ret > 0
+						done = True
+						gameover = True
+						If ret = 2
+							StopMusic()
+							playgame = False
+							done = False
+						EndIf
+					EndIf
+					BeginInputContext()
+					lastPlayerInputMode = -1
+					If gameInput.quit Then Return
+					If done Or Not playgame Then Exit
+					bombtime = 20
+				EndIf
 				Spawn(gcount)
 				UpdatePlayer()
 				UpdateAll()
@@ -3677,21 +3674,6 @@ Function Main()
 					Flip 1
 				EndIf
 				gcount:+1
-				If KeyHit(KEY_ESCAPE) Or ..
-					(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-					(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
-					Local ret:Int = Options(True)
-					If ret > 0
-						done = True
-						gameover = True
-						If ret = 2
-							StopMusic()
-							playgame = False
-							done = False
-						EndIf
-					EndIf
-					bombtime = 20
-				EndIf
 				tim4:Int = MilliSecs() - tim
 				If tim4 < 20 And tim4 > 0
 					Delay 20-tim4
@@ -3714,7 +3696,7 @@ Function Main()
 			EndIf
 		EndIf
 
-	Until done
+	Until done Or gameInput.quit
 
 End Function
 
@@ -3727,6 +3709,9 @@ Function DoGameOver:Int()
 
 	FlushKeys()
 	While looper < 360
+		PollGameInput()
+		gameInput.pauseRequested = False
+		If gameInput.quit Then Return True
 		dying = True
 		UpdateAll()
 		Cls
@@ -3745,12 +3730,10 @@ Function DoGameOver:Int()
 		If tim < 20 And tim > 0
 			Delay 20-tim
 		EndIf
-		If KeyHit(KEY_ESCAPE) Or ..
-			(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(KEY_ESCAPE) Or PadHit(PAD_START)
 			If Options(True) Then Return True
 		EndIf
-		If KeyHit(k_bomb) Or MouseHit(m_bomb)
+		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			looper = 360
 		EndIf
 		looper :+2
@@ -3775,6 +3758,9 @@ Function ShowFriends:Int(f:Int=-1)
 	Local lwsp:Int = 0
 
 	While (counter < 900)
+		PollGameInput()
+		gameInput.pauseRequested = False
+		If gameInput.quit Then Return True
 		Cls
 		gcount:+1
 		tim = MilliSecs()
@@ -3942,7 +3928,7 @@ Function ShowFriends:Int(f:Int=-1)
 
 		SetColor 255,255,0
 		If counter Mod 50 > 25
-			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+			DrawString("South / Enter / Bomb to Start",SCREENW/2-250,SCREENH-32,4)
 		EndIf
 
 '		DrawLine 0,0,SCREENW,0
@@ -3958,15 +3944,11 @@ Function ShowFriends:Int(f:Int=-1)
 		counter = counter+1
 		bombtime = bombtime - 1
 		If bombtime < 0 Then bombtime = 0
-		If KeyHit(KEY_ESCAPE) Or ..
-			(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(KEY_ESCAPE) Or PadHit(PAD_START)
 
 			If Options(False) Then Return True
 		EndIf
-		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or ..
-			(JoyDown(j_pad_bomb,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_bomb,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			counter = 1000
 			playgame = True
 		EndIf
@@ -3988,6 +3970,9 @@ Function ShowEnemies:Int(f:Int=-1)
 	bombtime = 20
 
 	While (counter < 900)
+		PollGameInput()
+		gameInput.pauseRequested = False
+		If gameInput.quit Then Return True
 		Cls
 		tim = MilliSecs()
 		If (SCREENH<600) Then lsp = 32;lwsp = 32 Else lsp = 50;lwsp = 0
@@ -4097,7 +4082,7 @@ Function ShowEnemies:Int(f:Int=-1)
 		part.DrawParticles()
 		SetColor 255,255,0
 		If counter Mod 50 > 25
-			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+			DrawString("South / Enter / Bomb to Start",SCREENW/2-250,SCREENH-32,4)
 		EndIf
 		Flip 1
 		tim = MilliSecs() - tim
@@ -4107,14 +4092,10 @@ Function ShowEnemies:Int(f:Int=-1)
 		counter = counter+1
 		bombtime:-1
 		If bombtime < 0 Then bombtime = 0
-		If KeyHit(KEY_ESCAPE) Or ..
-			(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(KEY_ESCAPE) Or PadHit(PAD_START)
 			If Options(False) Then Return True
 		EndIf
-		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or ..
-			(JoyDown(j_pad_bomb,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_bomb,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			counter = 1000
 			playgame = True
 		EndIf
@@ -4145,6 +4126,9 @@ Function ShowScores:Int(f:Int=-1)
 	FlushKeys()
 	bombtime = 20
 	While (counter < 750)
+		PollGameInput()
+		gameInput.pauseRequested = False
+		If gameInput.quit Then Return True
 		Cls
 		tim = MilliSecs()
 		d = counter/250
@@ -4201,7 +4185,7 @@ Function ShowScores:Int(f:Int=-1)
 		part.DrawParticles()
 		SetColor 255,255,0
 		If counter Mod 50 > 25
-			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+			DrawString("South / Enter / Bomb to Start",SCREENW/2-250,SCREENH-32,4)
 		EndIf
 		Flip 1
 		tim = MilliSecs() - tim
@@ -4211,15 +4195,11 @@ Function ShowScores:Int(f:Int=-1)
 		counter = counter+1
 		bombtime:-1
 		If bombtime < 0 Then bombtime = 0
-		If KeyHit(KEY_ESCAPE) Or ..
-			(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(KEY_ESCAPE) Or PadHit(PAD_START)
 			If Options(False) Then Return True
 			bombtime = 20
 		EndIf
-		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or ..
-			(JoyDown(j_pad_bomb,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_bomb,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			counter = 1000
 			playgame = True
 			bombtime = 20
@@ -4248,6 +4228,9 @@ Function ShowTitle:Int()
 	st$ = "GridWars 2"
 	ln = Len(st$)-1
 	While (counter < 900)
+		PollGameInput()
+		gameInput.pauseRequested = False
+		If gameInput.quit Then Return True
 		SetLineWidth 2.0
 		SetBlend lightblend
 		SetAlpha 1
@@ -4293,7 +4276,7 @@ Function ShowTitle:Int()
 
 		SetColor 255,255,0
 		If counter Mod 60 > 29
-			DrawString("Press BOMB Button to Start",SCREENW/2-26/2*5*4*shrink,SCREENH-32,4*shrink)
+			DrawString("South / Enter / Bomb to Start",SCREENW/2-26/2*5*4*shrink,SCREENH-32,4*shrink)
 		EndIf
 		Flip 1
 		tim = MilliSecs() - tim
@@ -4305,14 +4288,10 @@ Function ShowTitle:Int()
 		If bombtime < 0 Then bombtime = 0
 		tcounter = tcounter+1;If tcounter > 600 Then tcounter = 600
 
-		If KeyHit(KEY_ESCAPE) Or ..
-			(JoyDown(j_pad_option,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_option,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(KEY_ESCAPE) Or PadHit(PAD_START)
 			If Options(False) Then Return True
 		EndIf
-		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or ..
-			(JoyDown(j_pad_bomb,joyport) And controltype = 3 And bombtime = 0) Or ..
-			(JoyDown(j_d_bomb,joyport) And controltype = 0 And bombtime = 0)
+		If KeyHit(k_bomb) Or KeyHit(KEY_ENTER) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			counter = 1000
 			playgame = True
 		EndIf
@@ -4359,6 +4338,10 @@ Function GetReady:Int()
 	PlaySound2(get_ready_snd)
 	count = 0
 	While count < 60 And Not KeyDown(KEY_ESCAPE)
+		PollGameInput()
+		If gameInput.quit Then Return True
+		If PadHit(PAD_START) Then gameInput.pauseRequested = True
+		If gameInput.pauseRequested Then Exit
 		Cls
 		tim = MilliSecs()
 
@@ -4382,13 +4365,17 @@ Function GetReady:Int()
 		EndIf
 
 		count:+1
-		If KeyHit(k_bomb) Or MouseHit(m_bomb)
+		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			count = 60
 		EndIf
 	Wend
 	gridpoint.Pull(px,py,20,20)
 	count = 0
 	While count < 40 And Not KeyDown(KEY_ESCAPE)
+		PollGameInput()
+		If gameInput.quit Then Return True
+		If PadHit(PAD_START) Then gameInput.pauseRequested = True
+		If gameInput.pauseRequested Then Exit
 		Cls
 		tim = MilliSecs()
 
@@ -4410,7 +4397,7 @@ Function GetReady:Int()
 		EndIf
 
 		count:+1
-		If KeyHit(k_bomb) Or MouseHit(m_bomb)
+		If KeyHit(k_bomb) Or MouseHit(m_bomb) Or PadHit(PAD_CONFIRM)
 			count = 40
 		EndIf
 	Wend
@@ -4420,7 +4407,7 @@ Function GetReady:Int()
 	Score.ResetMultiplier()
 	oldmx = 0
 	oldmy = 0
-	MoveMouse(SCREENW/2,SCREENH/2)
+	GameMoveMouse(SCREENW/2,SCREENH/2)
 
 End Function
 
@@ -4454,6 +4441,10 @@ Function KillPlayer:Int()
 	removeall(False) 'remove all but the killer
 	Local count:Int = 0
 	While (count < 100)  And Not KeyDown(KEY_ESCAPE)
+		PollGameInput()
+		If gameInput.quit Then Return True
+		If PadHit(PAD_START) Then gameInput.pauseRequested = True
+		If gameInput.pauseRequested Then Exit
 		Cls
 		tim = MilliSecs()
 
@@ -4975,7 +4966,14 @@ End Function
 Function Updateplayer()
 
 	Local xx#,yy#,xy#, jb:Int, i:Int, r:Int	, speed#
-	Select controltype
+	Local inputMode:Int = controltype
+	If gameInput.usingPad And gameInput.active Then inputMode = 0
+	If inputMode <> lastPlayerInputMode
+		oldmx = 0; oldmy = 0; jdmx = 0; jdmy = 0; jdfx = 0; jdfy = 0
+		If inputMode = 1 Or (inputMode = 4 And h_config = 1) Then GameMoveMouse(SCREENW/2,SCREENH/2)
+	EndIf
+	lastPlayerInputMode = inputMode
+	Select inputMode
 
 		Case 1 ' mouse
 			'bombs
@@ -4988,7 +4986,7 @@ Function Updateplayer()
 			'move
 			xx = (MouseX()-SCREENW/2)
 			yy = (MouseY()-SCREENH/2)
-			MoveMouse(SCREENW/2,SCREENH/2)
+			GameMoveMouse(SCREENW/2,SCREENH/2)
 
 			jdmx = xx/128*(1+m_sensitivity*5)
 			jdmy = yy/128*(1+m_sensitivity*5)
@@ -5025,45 +5023,15 @@ Function Updateplayer()
 			EndIf
 			oldmx = jdmx
 			oldmy = jdmy
-		Case 0 ' dual analog joy
-			'bombs
-			jb = 0
-			bombtime = bombtime - 1
-			If bombtime < 0 Then bombtime = 0
-			jb = JoyDown(j_d_bomb,joyport)
-			If jb And bombtime = 0 Then shot.SuperBomb()
-
-			'move
-			jdmx = GetJoyByAxis(joyport, axis_move_x,axis_move_x_inv,axis_move_x_sc,axis_move_x_center )
-			jdmy = GetJoyByAxis(joyport, axis_move_y,axis_move_y_inv,axis_move_y_sc,axis_move_y_center )
-'			If Abs(jdmx) < axis_move_x_dz Then jdmx = 0
-'			If Abs(jdmy) < axis_move_y_dz Then jdmy = 0
-			If Abs(jdmx) < axis_move_x_dz And Abs(jdmy) < axis_move_y_dz Then
-				jdmx = 0
-				jdmy = 0
-			End If
-
-			'fire
-			jdfx = GetJoyByAxis(joyport, axis_fire_x,axis_fire_x_inv,axis_fire_x_sc,axis_fire_x_center )
-			jdfy = GetJoyByAxis(joyport, axis_fire_y,axis_fire_y_inv,axis_fire_y_sc,axis_fire_y_center )
-'			If Abs(jdfx) < axis_fire_x_dz Then jdfx = 0
-'			If Abs(jdfy) < axis_fire_y_dz Then jdfy = 0
-			If Abs(jdfx) < axis_fire_x_dz And Abs(jdfy) < axis_fire_y_dz Then
-				jdfx = 0
-				jdfy = 0
-			End If
-			oldmx:*inertia
-			oldmy:*inertia
-			jdmx:+oldmx
-			jdmy:+oldmy
-			' stay within screen
-			speed# = Sqr(jdmx*jdmx + jdmy*jdmy)
-			If speed > 1
-				jdmx = jdmx/speed
-				jdmy = jdmy/speed
-			EndIf
-			oldmx = jdmx
-			oldmy = jdmy
+		Case 0 ' mapped gamepad, independent of keyboard/mouse preference
+			bombtime = Max(0, bombtime-1)
+			If PadBombHit() And bombtime = 0 Then shot.SuperBomb()
+			jdmx = gameInput.active.moveX
+			jdmy = gameInput.active.moveY
+			jdfx = gameInput.active.aimX
+			jdfy = gameInput.active.aimY
+			oldmx = 0
+			oldmy = 0
 
 		Case 2 'keys
 			'bombs
@@ -5098,50 +5066,6 @@ Function Updateplayer()
 				jdfx = KeyDown(k_fire_right) - KeyDown(k_fire_left)
 				jdfy = KeyDown(k_fire_down) - KeyDown(k_fire_up)
 			EndIf
-			oldmx:*inertia
-			oldmy:*inertia
-			jdmx:+oldmx
-			jdmy:+oldmy
-			' stay within screen
-			speed# = Sqr(jdmx*jdmx + jdmy*jdmy)
-			If speed > 1
-				jdmx = jdmx/speed
-				jdmy = jdmy/speed
-			EndIf
-			oldmx = jdmx
-			oldmy = jdmy
-		Case 3 'joypad
-			'bombs
-			jb = 0
-			bombtime = bombtime - 1
-			If bombtime < 0 Then bombtime = 0
-			jb = JoyDown(j_pad_bomb,joyport)
-			If jb And bombtime = 0 Then shot.SuperBomb()
-
-			Select j_config
-				Case 0
-					'move
-					jdmx = JoyX()
-					jdmy = JoyY()
-
-					'fire
-					jdfx = JoyDown(j_pad_3, joyport) - JoyDown(j_pad_1, joyport)
-					jdfy = JoyDown(j_pad_2, joyport) - JoyDown(j_pad_4, joyport)
-
-				Case 1
-					'move
-					jdmx = JoyDown(j_pad_3, joyport) - JoyDown(j_pad_1, joyport)
-					jdmy = JoyDown(j_pad_2, joyport) - JoyDown(j_pad_4, joyport)
-
-					'fire
-					jdfx = JoyX()
-					jdfy = JoyY()
-			End Select
-			If Abs(jdmx) < 0.5 Then jdmx = 0
-			If Abs(jdmy) < 0.5 Then jdmy = 0
-			If Abs(jdfx) < 0.5 Then jdfx = 0
-			If Abs(jdfy) < 0.5 Then jdfy = 0
-
 			oldmx:*inertia
 			oldmy:*inertia
 			jdmx:+oldmx
@@ -5203,7 +5127,7 @@ Function Updateplayer()
 					'move
 					xx = (MouseX()-SCREENW/2)
 					yy = (MouseY()-SCREENH/2)
-					MoveMouse(SCREENW/2,SCREENH/2)
+					GameMoveMouse(SCREENW/2,SCREENH/2)
 
 					jdmx = xx/128*(1+m_sensitivity*5)
 					jdmy = yy/128*(1+m_sensitivity*5)
@@ -5261,7 +5185,7 @@ Function Updateplayer()
 							jdfx = mxaim
 							jdfy = myaim
 						Else
-'							MoveMouse(SCREENW/2,SCREENH/2)
+'							GameMoveMouse(SCREENW/2,SCREENH/2)
 							jdfx = 0
 							jdfy = 0
 						EndIf
