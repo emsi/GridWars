@@ -3,16 +3,12 @@
 ' markinc @ gmail.com
 SuperStrict
 
-?MacOS
+?MacOS Or Win32
 Framework BRL.GLMax2D
-?Win32
-'Framework BRL.D3D7Max2D
-Framework BRL.GLMax2D
-?Linux
 ?OpenGLES
 Framework SDL.GL2SDLMax2D
-?not OpenGLES
-Framework BRL.GLMax2D
+?Linux And Not OpenGLES
+Framework SDL.GLSDLMax2D
 ?
 
 Import BRL.Random
@@ -57,7 +53,7 @@ GetGfxModes()
 FindSetting()
 SetController()
 SetupKeyTable()
-SetUp()
+If Not SetUp() Then RuntimeError "Unable to create the game graphics window."
 LoadSounds()
 
 

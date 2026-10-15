@@ -125,7 +125,7 @@ Function DrawCircle(xCenter:Int,yCenter:Int,radius:Int)
 End Function
 
 
-Function Rect(x:Int,y:Int,w:Int,h:Int,f:Int=0)
+Function DrawGameRect(x:Int,y:Int,w:Int,h:Int,f:Int=0)
 	If f
 		'solid
 		DrawRect x,y,w,h

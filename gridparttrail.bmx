@@ -228,30 +228,22 @@ Function SetUp:Int()
 
 	SetDimensions()
 
-	If windowed
-		If GraphicsModeExists( SCREENW,SCREENH )
-			Graphics(SCREENW, SCREENH, 0)
-		Else
-			Local fh:TStream = WriteFile("errors.txt")
-			WriteLine(fh,"Can not set graphics mode: Windowed - "+SCREENW+"X"+SCREENH)
-			CloseFile fh
-			ret = False
-		EndIf
-	Else
+	If Not windowed
 		Local sucess:Int = False
 		For Local dep:Int = 32 To 16 Step -8
 			If GraphicsModeExists( SCREENW,SCREENH,dep)
-				Graphics(SCREENW, SCREENH, dep, 60)
-				sucess = True
-				Exit
+				If Graphics(SCREENW, SCREENH, dep, 60)
+					sucess = True
+					Exit
+				EndIf
 			EndIf
 		Next
-		If Not sucess
-			Local fh:TStream = WriteFile("errors.txt")
-			WriteLine(fh,"Could not set graphics mode: Fullscreen - "+SCREENW+"X"+SCREENH)
-			CloseFile fh
-			ret = False
-		EndIf
+		If Not sucess Then windowed = True
+	EndIf
+
+	' A window does not need to match one of the monitor's fullscreen modes.
+	If windowed
+		If Not Graphics(SCREENW, SCREENH, 0) Then ret = False
 	EndIf
 
 	If ret = True

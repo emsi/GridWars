@@ -1571,9 +1571,9 @@ Function GameSettings:Int(showgame:Int)
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
 		DrawString("Inertia:",SCREENW/2-280,SCREENH/2+lsp*2,4)
-		rect SCREENW/2-360+240+1,SCREENH/2+lsp*2+1,inertia*300,24-2,1
+		DrawGameRect SCREENW/2-360+240+1,SCREENH/2+lsp*2+1,inertia*300,24-2,1
 		SetColor 255,255,0
-		rect SCREENW/2-360+240,SCREENH/2+lsp*2,302,24,0
+		DrawGameRect SCREENW/2-360+240,SCREENH/2+lsp*2,302,24,0
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 5
 		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
@@ -1725,28 +1725,28 @@ Function AudioSettings(showgame:Int)
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2,SCREENW,5*4) Then sel = 0
 		If sel = 0
 			SetColor 0,200,0
-			rect SCREENW/2+2,SCREENH/2+2,sfxvol*200,24-2,1
+			DrawGameRect SCREENW/2+2,SCREENH/2+2,sfxvol*200,24-2,1
 			SetColor 255,255,(cnt*8) Mod 255
 		Else
 			SetColor 0,100,0
-			rect SCREENW/2+1,SCREENH/2+1,sfxvol*200,24-2,1
+			DrawGameRect SCREENW/2+1,SCREENH/2+1,sfxvol*200,24-2,1
 			SetColor 0,200,0
 		EndIf
 		DrawString("SFX Volume:",SCREENW/2-280,SCREENH/2,4)
-		rect SCREENW/2,SCREENH/2,202,24,0
+		DrawGameRect SCREENW/2,SCREENH/2,202,24,0
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 1
 		If sel = 1
 			SetColor 0,200,0
-			rect SCREENW/2+1,SCREENH/2+lsp+1,musicvol*200,24-2,1
+			DrawGameRect SCREENW/2+1,SCREENH/2+lsp+1,musicvol*200,24-2,1
 			SetColor 255,255,(cnt*8) Mod 255
 		Else
 			SetColor 0,100,0
-			rect SCREENW/2+1,SCREENH/2+lsp+1,musicvol*200,24-2,1
+			DrawGameRect SCREENW/2+1,SCREENH/2+lsp+1,musicvol*200,24-2,1
 			SetColor 0,200,0
 		EndIf
 		DrawString("Music Volume:",SCREENW/2-280,SCREENH/2+lsp,4)
-		rect SCREENW/2,SCREENH/2+lsp,202,24,0
+		DrawGameRect SCREENW/2,SCREENH/2+lsp,202,24,0
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
@@ -2020,10 +2020,10 @@ Function HybridControllerSettings(showgame:Int)
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2+100+1,SCREENH/2+lsp*2+1,m_sensitivity*200,24-2,1
+		DrawGameRect SCREENW/2+100+1,SCREENH/2+lsp*2+1,m_sensitivity*200,24-2,1
 		DrawString("Mouse Sensitivity:",SCREENW/2-280,SCREENH/2+lsp*2,4)
 		SetColor 255,255,0
-		rect SCREENW/2+100,SCREENH/2+lsp*2,202,24,0
+		DrawGameRect SCREENW/2+100,SCREENH/2+lsp*2,202,24,0
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*3,SCREENW,5*4) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
@@ -2150,10 +2150,10 @@ Function MouseControllerSettings(showgame:Int)
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp,SCREENW,5*4) Then sel = 2
 		If sel = 2 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2+100+1,SCREENH/2+lsp+1,m_sensitivity*200,24-2,1
+		DrawGameRect SCREENW/2+100+1,SCREENH/2+lsp+1,m_sensitivity*200,24-2,1
 		DrawString("Mouse Sensitivity:",SCREENW/2-280,SCREENH/2+lsp,4)
 		SetColor 255,255,0
-		rect SCREENW/2+100,SCREENH/2+lsp,202,24,0
+		DrawGameRect SCREENW/2+100,SCREENH/2+lsp,202,24,0
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*2,SCREENW,5*4) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
@@ -2438,22 +2438,22 @@ Function JoypadControllerSettings(showgame:Int)
 
 		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+64,SCREENH/2+lsp*1,40,30) Then sel = 3
 		If sel = 3 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2+64,SCREENH/2+lsp*1,40,30,0
+		DrawGameRect SCREENW/2+64,SCREENH/2+lsp*1,40,30,0
 		DrawString((j_pad_4+1),SCREENW/2+64+8,SCREENH/2+lsp*1+8,3)
 
 		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2,SCREENH/2+lsp*2,40,30) Then sel = 4
 		If sel = 4 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2,SCREENH/2+lsp*2,40,30,0
+		DrawGameRect SCREENW/2,SCREENH/2+lsp*2,40,30,0
 		DrawString((j_pad_1+1),SCREENW/2+8,SCREENH/2+lsp*2+8,3)
 
 		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+128,SCREENH/2+lsp*2,40,30) Then sel = 5
 		If sel = 5 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2+128,SCREENH/2+lsp*2,40,30,0
+		DrawGameRect SCREENW/2+128,SCREENH/2+lsp*2,40,30,0
 		DrawString((j_pad_3+1),SCREENW/2+128+8,SCREENH/2+lsp*2+8,3)
 
 		If RectsOverlap(xx-8,yy-8,16,16,SCREENW/2+64,SCREENH/2+lsp*3,40,30) Then sel = 6
 		If sel = 6 SetColor 255,255,(cnt*8) Mod 255 Else SetColor 0,200,0
-		rect SCREENW/2+64,SCREENH/2+lsp*3,40,30,0
+		DrawGameRect SCREENW/2+64,SCREENH/2+lsp*3,40,30,0
 		DrawString((j_pad_2+1),SCREENW/2+64+8,SCREENH/2+lsp*3+8,3)
 
 		If RectsOverlap(xx-8,yy-8,16,16,0,SCREENH/2+lsp*4,SCREENW,5*4) Then sel = 7
@@ -2702,7 +2702,7 @@ Function DrawConfigStuff()
 	DrawText "Dual Stick Configuration",170,10
 
 	SetColor 128,128,128
-	Rect 10,32,600,130,0 ' large text info box outline
+	DrawGameRect 10,32,600,130,0 ' large text info box outline
 	DrawText "Select controller port (0 for  single joypad)",15,35
 	DrawText "others are only needed for multiple joypads.",15,35+1*12
 	DrawText "Assign controls by clicking AXIS WIZARD or individually",15,35+2*12
@@ -2717,20 +2717,20 @@ Function DrawConfigStuff()
 	SetColor 35,65,115
 	Select joyport ' draw current port selected
 		Case 0
-			Rect 100+10,130+45,45,25,1
+			DrawGameRect 100+10,130+45,45,25,1
 		Case 1
-			Rect 100+60,130+45,45,25,1
+			DrawGameRect 100+60,130+45,45,25,1
 		Case 2
-			Rect 100+110,130+45,45,25,1
+			DrawGameRect 100+110,130+45,45,25,1
 		Case 3
-			Rect 100+160,130+45,45,25,1
+			DrawGameRect 100+160,130+45,45,25,1
 	End Select
 
 	SetColor 0,0,100
-	Rect 100+10,130+45,45,25,0 ' draw ports (outlines)
-	Rect 100+60,130+45,45,25,0
-	Rect 100+110,130+45,45,25,0
-	Rect 100+160,130+45,45,25,0
+	DrawGameRect 100+10,130+45,45,25,0 ' draw ports (outlines)
+	DrawGameRect 100+60,130+45,45,25,0
+	DrawGameRect 100+110,130+45,45,25,0
+	DrawGameRect 100+160,130+45,45,25,0
 
 	SetColor 255,255,255
 	DrawText "Controller:",10,130+50
@@ -2741,44 +2741,44 @@ Function DrawConfigStuff()
 
 	If assigning = True
 		SetColor 100,100,100
-		Rect 10,225,135,25,1
+		DrawGameRect 10,225,135,25,1
 	EndIf
 	SetColor 255,255,255
-	Rect 10,225,135,25,0
+	DrawGameRect 10,225,135,25,0
 	DrawText "AXIS WIZARD",25,230
 
 	If assigningoption = True
 		SetColor 100,100,100
-		Rect 180,225,100,25,1
+		DrawGameRect 180,225,100,25,1
 	EndIf
 	SetColor 255,255,255
-	Rect 180,225,100,25,0
+	DrawGameRect 180,225,100,25,0
 	DrawText "OPTION = "+(j[joyport].optionbutton+1),190,230
 
 	If assigningbomb = True
 		SetColor 100,100,100
-		Rect 320,225,100,25,1
+		DrawGameRect 320,225,100,25,1
 	EndIf
 	SetColor 255,255,255
-	Rect 320,225,100,25,0
+	DrawGameRect 320,225,100,25,0
 	DrawText "BOMB = "+(j[joyport].bombbutton+1),330,230
 
 	'draw boxes For axis controls
 	SetColor 50,65,220
 	If j[joyport].x1invert =-1 Then SetColor 255,128,0
-	Rect 10,395,175,14,1
+	DrawGameRect 10,395,175,14,1
 
 	SetColor 50,65,220
 	If j[joyport].y1invert =-1 Then SetColor 255,128,0
-	Rect 10,415,175,14,1
+	DrawGameRect 10,415,175,14,1
 
 	SetColor 50,65,220
 	If j[joyport].x2invert =-1 Then SetColor 255,128,0
-	Rect 250,395,175,14,1
+	DrawGameRect 250,395,175,14,1
 
 	SetColor 50,65,220
 	If j[joyport].y2invert =-1 Then SetColor 255,128,0
-	Rect 250,415,175,14,1
+	DrawGameRect 250,415,175,14,1
 
 	SetColor 255,255,255
 	DrawText "Stick 1",10,380
@@ -2790,19 +2790,19 @@ Function DrawConfigStuff()
 
 	If deadbandadjust = 1
 		SetColor 100,100,100
-		Rect 10+1,275+1, 100-2,100-2,1
+		DrawGameRect 10+1,275+1, 100-2,100-2,1
 	ElseIf deadbandadjust = 2
 		SetColor 100,100,100
-		Rect 250+1,275+1, 100-2,100-2,1
+		DrawGameRect 250+1,275+1, 100-2,100-2,1
 	EndIf
 
 	SetColor 0,255,0
-	rect 10+50-8,275+50-8,16,16
-	rect 250+50-8,275+50-8,16,16
+	DrawGameRect 10+50-8,275+50-8,16,16
+	DrawGameRect 250+50-8,275+50-8,16,16
 
 	SetColor 255,255,255
-	Rect 10,275, 100,100,0 'draw outline boxes for controllers
-	Rect 250,275, 100,100,0
+	DrawGameRect 10,275, 100,100,0 'draw outline boxes for controllers
+	DrawGameRect 250,275, 100,100,0
 
 	DrawText "X Scaling Factor",10,440
 	DrawText "X Scaling Factor",250,440
@@ -2812,35 +2812,35 @@ Function DrawConfigStuff()
 	SetColor 35,65,115
 	Select j[joyport].x1scale
 		Case 1
-			Rect 10,455,45,20,1
+			DrawGameRect 10,455,45,20,1
 		Case 128
-			Rect 60,455,45,20,1
+			DrawGameRect 60,455,45,20,1
 		Case 255
-			Rect 110,455,45,20,1
+			DrawGameRect 110,455,45,20,1
 	End Select
 	Select j[joyport].y1scale
 		Case 1
-			Rect 10,495,45,20,1
+			DrawGameRect 10,495,45,20,1
 		Case 128
-			Rect 60,495,45,20,1
+			DrawGameRect 60,495,45,20,1
 		Case 255
-			Rect 110,495,45,20,1
+			DrawGameRect 110,495,45,20,1
 	End Select
 	Select j[joyport].x2scale
 		Case 1
-			Rect 240+10,455,45,20,1
+			DrawGameRect 240+10,455,45,20,1
 		Case 128
-			Rect 240+60,455,45,20,1
+			DrawGameRect 240+60,455,45,20,1
 		Case 255
-			Rect 240+110,455,45,20,1
+			DrawGameRect 240+110,455,45,20,1
 	End Select
 	Select j[joyport].y2scale
 		Case 1
-			Rect 240+10,495,45,20,1
+			DrawGameRect 240+10,495,45,20,1
 		Case 128
-			Rect 240+60,495,45,20,1
+			DrawGameRect 240+60,495,45,20,1
 		Case 255
-			Rect 240+110,495,45,20,1
+			DrawGameRect 240+110,495,45,20,1
 	End Select
 
 	SetColor 255,255,255
@@ -2861,21 +2861,21 @@ Function DrawConfigStuff()
 	DrawText "255",240+120,500
 
 	SetColor 0,0,100
-	Rect 10,455,45,20,0
-	Rect 60,455,45,20,0
-	Rect 110,455,45,20,0
+	DrawGameRect 10,455,45,20,0
+	DrawGameRect 60,455,45,20,0
+	DrawGameRect 110,455,45,20,0
 
-	Rect 240+10,455,45,20,0
-	Rect 240+60,455,45,20,0
-	Rect 240+110,455,45,20,0
+	DrawGameRect 240+10,455,45,20,0
+	DrawGameRect 240+60,455,45,20,0
+	DrawGameRect 240+110,455,45,20,0
 
-	Rect 10,495,45,20,0
-	Rect 60,495,45,20,0
-	Rect 110,495,45,20,0
+	DrawGameRect 10,495,45,20,0
+	DrawGameRect 60,495,45,20,0
+	DrawGameRect 110,495,45,20,0
 
-	Rect 240+10,495,45,20,0
-	Rect 240+60,495,45,20,0
-	Rect 240+110,495,45,20,0
+	DrawGameRect 240+10,495,45,20,0
+	DrawGameRect 240+60,495,45,20,0
+	DrawGameRect 240+110,495,45,20,0
 
 	SetColor 255,32,32
 	DrawText "DZ 1",120,270
@@ -2893,10 +2893,10 @@ Function DrawConfigStuff()
 	DrawText "Y: "+j[joyport].y2center,360,365
 
 	SetColor 64,64,64
-	Rect 490,275+40,110,20
-	Rect 490,300+40,110,20
-	Rect 490,325+40,110,20
-	Rect 490,350+40,110,20
+	DrawGameRect 490,275+40,110,20
+	DrawGameRect 490,300+40,110,20
+	DrawGameRect 490,325+40,110,20
+	DrawGameRect 490,350+40,110,20
 	SetColor 255,255,255
 	DrawText "(D)ebug",493,277+40
 	DrawText "(S)ave Config",493,302+40
@@ -2905,30 +2905,30 @@ Function DrawConfigStuff()
 
 	If debug = 1
 		SetColor 16,16,16
-		Rect 0,25,640,217+80,1
+		DrawGameRect 0,25,640,217+80,1
 		SetColor 48,48,48
-		Rect 40,30,300,200+80,1
+		DrawGameRect 40,30,300,200+80,1
 		SetColor 64,64,64 ' draw grey boxes
 		For Local loop:Int = 50 To 190+80 Step 20
-			Rect 180,loop,150,15
+			DrawGameRect 180,loop,150,15
 		Next
-		Rect 40,30,300,200+60,0
-		Rect 39,29,302,202+60,0
+		DrawGameRect 40,30,300,200+60,0
+		DrawGameRect 39,29,302,202+60,0
 
 		SetColor 128,128,128 ' draw boxes showing movement of axis
-		Rect 180,50,FitValueToRange#( JoyX(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,70,FitValueToRange#( JoyY(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,90,FitValueToRange#( JoyZ(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,110,FitValueToRange#( JoyR(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,130,FitValueToRange#( JoyU(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,150,FitValueToRange#( JoyV(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,170,FitValueToRange#( JoyPitch(joyport), -180, 180, 0, 150 ),15,1
-		Rect 180,190,FitValueToRange#( JoyRoll(joyport), -180, 180, 0, 150 ),15,1
-		Rect 180,210,FitValueToRange#( JoyYaw(joyport), -180, 180, 0, 150 ),15,1
-		Rect 180,230,FitValueToRange#( JoyHat(joyport), -1, 1, 0, 150 ),15,1
-		Rect 180,250,FitValueToRange#( JoyWheel(joyport), -1, 1, 0, 150 ),15,1
-'		Rect 180,270,FitValueToRange#( JoyWhat(joyport,12), -1, 1, 0, 150 ),15,1
-'		Rect 180,290,FitValueToRange#( JoyWhat(joyport,13), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,50,FitValueToRange#( JoyX(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,70,FitValueToRange#( JoyY(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,90,FitValueToRange#( JoyZ(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,110,FitValueToRange#( JoyR(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,130,FitValueToRange#( JoyU(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,150,FitValueToRange#( JoyV(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,170,FitValueToRange#( JoyPitch(joyport), -180, 180, 0, 150 ),15,1
+		DrawGameRect 180,190,FitValueToRange#( JoyRoll(joyport), -180, 180, 0, 150 ),15,1
+		DrawGameRect 180,210,FitValueToRange#( JoyYaw(joyport), -180, 180, 0, 150 ),15,1
+		DrawGameRect 180,230,FitValueToRange#( JoyHat(joyport), -1, 1, 0, 150 ),15,1
+		DrawGameRect 180,250,FitValueToRange#( JoyWheel(joyport), -1, 1, 0, 150 ),15,1
+'		DrawGameRect 180,270,FitValueToRange#( JoyWhat(joyport,12), -1, 1, 0, 150 ),15,1
+'		DrawGameRect 180,290,FitValueToRange#( JoyWhat(joyport,13), -1, 1, 0, 150 ),15,1
 
 		SetColor 160,160,160 ' show values of axis
 		DrawText "1.  JoyX()      : " + JoyX(joyport) ,50,50
@@ -2952,7 +2952,7 @@ End Function
 Function CheckInput:Int(port:Int)
 	SetColor 255,0,0
 	If RectsOverlap  (mx-2,my-2,4,4,10,395,175,14) ' joy x 1
-		Rect 9,394,177,16,0 ' draw a highlight rectangle
+		DrawGameRect 9,394,177,16,0 ' draw a highlight rectangle
 		If MouseHit(1) Then j[port].x1id:+1
 		If MouseHit(2) Then j[port].x1invert = - j[port].x1invert
 		If j[port].x1id > 15 Then j[port].x1id = 0
@@ -2960,7 +2960,7 @@ Function CheckInput:Int(port:Int)
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,10,415,175,14) ' joy y 1
-		Rect 9,414,177,16,0	' draw a highlight rectangle
+		DrawGameRect 9,414,177,16,0	' draw a highlight rectangle
 		If MouseHit(1) Then j[port].y1id:+1
 		If MouseHit(2) Then j[port].y1invert = - j[port].y1invert
 		If j[port].y1id > 15 Then j[port].y1id = 0
@@ -2968,7 +2968,7 @@ Function CheckInput:Int(port:Int)
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,250,395,175,14) ' joy x 2
-		Rect 249,394,177,16,0	' draw a highlight rectangle
+		DrawGameRect 249,394,177,16,0	' draw a highlight rectangle
 		If MouseHit(1) Then j[port].x2id:+1
 		If MouseHit(2) Then j[port].x2invert = - j[port].x2invert
 		If j[port].x2id > 15 Then j[port].x2id = 0
@@ -2976,7 +2976,7 @@ Function CheckInput:Int(port:Int)
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,250,415,175,14) ' joy y 2
-		Rect 249,414,177,16,0	' draw a highlight rectangle
+		DrawGameRect 249,414,177,16,0	' draw a highlight rectangle
 		If MouseHit(1) Then j[port].y2id:+1
 		If MouseHit(2) Then j[port].y2invert = - j[port].y2invert
 		If j[port].y2id > 15 Then j[port].y2id = 0
@@ -2984,7 +2984,7 @@ Function CheckInput:Int(port:Int)
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,10,275,100,100)
-		Rect 10,275,100,100,0
+		DrawGameRect 10,275,100,100,0
 		If MouseHit(1)
 			If deadbandadjust = 1
 				deadbandadjust = 0
@@ -2995,7 +2995,7 @@ Function CheckInput:Int(port:Int)
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,250,275,100,100)
-		Rect 250,275,100,100,0
+		DrawGameRect 250,275,100,100,0
 		If MouseHit(1)
 			If deadbandadjust = 2
 				deadbandadjust = 0
@@ -3007,88 +3007,88 @@ Function CheckInput:Int(port:Int)
 
 	'joy port selection
 	If RectsOverlap  (mx-2,my-2,4,4,100+10,130+45,45,25)
-		Rect 100+10,130+45,45,25,0
+		DrawGameRect 100+10,130+45,45,25,0
 		If MouseHit(1) Then joyport = 0
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,100+60,130+45,45,25)
-		Rect 100+60,130+45,45,25,0
+		DrawGameRect 100+60,130+45,45,25,0
 		If MouseHit(1) Then joyport = 1
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,100+110,130+45,45,25)
-		Rect 100+110,130+45,45,25,0
+		DrawGameRect 100+110,130+45,45,25,0
 		If MouseHit(1) Then joyport = 2
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,100+160,130+45,45,25)
-		Rect 100+160,130+45,45,25,0
+		DrawGameRect 100+160,130+45,45,25,0
 		If MouseHit(1) Then joyport = 3
 	EndIf
 
 	'scaling
 	If RectsOverlap  (mx-2,my-2,4,4,10,455,45,20)
-		Rect 10,455,45,20,0
+		DrawGameRect 10,455,45,20,0
 		If MouseHit(1) Then j[joyport].x1scale = 1
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,60,455,45,20)
-		Rect 60,455,45,20,0
+		DrawGameRect 60,455,45,20,0
 		If MouseHit(1) Then j[joyport].x1scale = 180
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,110,455,45,20)
-		Rect 110,455,45,20,0
+		DrawGameRect 110,455,45,20,0
 		If MouseHit(1) Then j[joyport].x1scale = 255
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,10,495,45,20)
-		Rect 10,495,45,20,0
+		DrawGameRect 10,495,45,20,0
 		If MouseHit(1) Then j[joyport].y1scale = 1
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,60,495,45,20)
-		Rect 60,495,45,20,0
+		DrawGameRect 60,495,45,20,0
 		If MouseHit(1) Then j[joyport].y1scale = 180
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,110,495,45,20)
-		Rect 110,495,45,20,0
+		DrawGameRect 110,495,45,20,0
 		If MouseHit(1) Then j[joyport].y1scale = 255
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,240+10,455,45,20)
-		Rect 240+10,455,45,20,0
+		DrawGameRect 240+10,455,45,20,0
 		If MouseHit(1) Then j[joyport].x2scale = 1
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,240+60,455,45,20)
-		Rect 240+60,455,45,20,0
+		DrawGameRect 240+60,455,45,20,0
 		If MouseHit(1) Then j[joyport].x2scale = 180
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,240+110,455,45,20)
-		Rect 240+110,455,45,20,0
+		DrawGameRect 240+110,455,45,20,0
 		If MouseHit(1) Then j[joyport].x2scale = 255
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,240+10,495,45,20)
-		Rect 240+10,495,45,20,0
+		DrawGameRect 240+10,495,45,20,0
 		If MouseHit(1) Then j[joyport].y2scale = 1
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,240+60,495,45,20)
-		Rect 240+60,495,45,20,0
+		DrawGameRect 240+60,495,45,20,0
 		If MouseHit(1) Then j[joyport].y2scale = 180
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,240+110,495,45,20)
-		Rect 240+110,495,45,20,0
+		DrawGameRect 240+110,495,45,20,0
 		If MouseHit(1) Then j[joyport].y2scale = 255
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,10,225,135,25) ' assign all axis button
-		Rect 10,225,135,25,0
+		DrawGameRect 10,225,135,25,0
 		If MouseHit(1) Then assigning = True;ax = 0;assigningoption = False;assigningbomb = False
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,180,225,100,25) ' option button
-		Rect 180,225,100,25,0
+		DrawGameRect 180,225,100,25,0
 		If MouseHit(1) Then assigningoption = True;assigningbomb = False
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,320,225,100,25) ' bomb button
-		Rect 320,225,100,25,0
+		DrawGameRect 320,225,100,25,0
 		If MouseHit(1) Then assigningbomb = True;assigningoption = False
 	EndIf
 
@@ -3118,17 +3118,17 @@ Function CheckInput:Int(port:Int)
 	If KeyHit(KEY_4) Then joyport = 3 '4 key
 
 	If RectsOverlap  (mx-2,my-2,4,4,490,275+40,110,20) ' debug toggle
-		Rect 490,275+40,110,20,0
+		DrawGameRect 490,275+40,110,20,0
 		If MouseHit (1) Then debug = 1 - Debug
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,490,300+40,110,20) ' save button
-		Rect 490,300+40,110,20,0
+		DrawGameRect 490,300+40,110,20,0
 		If MouseHit (1) Then SaveConfig()
 	EndIf
 
 	If RectsOverlap  (mx-2,my-2,4,4,490,325+40,110,20) 'load button
-		Rect 490,325+40,110,20,0
+		DrawGameRect 490,325+40,110,20,0
 		If MouseHit (1) Then LoadConfig()
 	EndIf
 
@@ -3224,7 +3224,7 @@ Function CheckInput:Int(port:Int)
 		EndIf
 	EndIf
 	If RectsOverlap  (mx-2,my-2,4,4,490,350+40,110,20) ' quit button
-		Rect 490,350+40,110,20,0
+		DrawGameRect 490,350+40,110,20,0
 		If MouseHit (1) Then Return True
 	EndIf
 

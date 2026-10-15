@@ -188,7 +188,7 @@ Function LoadSounds()
 
 	game_over_snd:TSound = LoadSound(folder$+"gameover.wav")			'
 
-	super_bomb_snd:TSound = LoadSound(folder$+"explo1.wav")			'
+	super_bomb_snd:TSound = LoadSound(folder$+"Explo1.wav")			'
 
 	extra_life_snd:TSound = LoadSound(folder$+"brainborn.wav")			'
 
